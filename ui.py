@@ -452,7 +452,7 @@ class SourceFrame(ttk.LabelFrame):
         if self.is_base:
             key_frame = ttk.LabelFrame(self, text="매칭 키 (Key) 선택", padding=5)
             key_frame.pack(fill="x", pady=(5, 0))
-            self.key_listbox = MultiSelectListBox(key_frame, height=4)
+            self.key_listbox = MultiSelectListBox(key_frame, height=3)
             self.key_listbox.pack(fill="x")
 
         self._refresh_ui()
@@ -804,12 +804,12 @@ class App(tk.Tk):
 
 
         # --- HEADER SECTION ---
-        header = tk.Frame(self, bg="#2c3e50", height=110)
+        header = tk.Frame(self, bg="#2c3e50", height=90)  # Reduced from 110
         header.pack(fill="x", side="top")
         
         # Left side: Logo + Title + Slogan
         left_header = tk.Frame(header, bg="#2c3e50")
-        left_header.pack(side="left", padx=20, pady=15)
+        left_header.pack(side="left", padx=15, pady=8)  # Reduced padding
         
         # Logo icon (text-based to avoid emoji crash on macOS)
         try:
@@ -1044,7 +1044,7 @@ class App(tk.Tk):
         except Exception:
             pass
 
-        main = ttk.Frame(self, padding=10)  # Reduced from 20 to 10
+        main = ttk.Frame(self, padding=5)  # Reduced padding for more space
         
         footer = ttk.Frame(main)
         footer.pack(side="bottom", fill="x", pady=(10, 0))
