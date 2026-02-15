@@ -43,7 +43,6 @@ jobs:
             --add-data "presets.json;." `
             --add-data "replacements.json;." `
             --add-data "usage_guide.html;." `
-            --icon "assets\app.ico" `
             main.py
 
       - name: Upload Windows EXE
@@ -86,7 +85,6 @@ jobs:
             --add-data "presets.json:." \
             --add-data "replacements.json:." \
             --add-data "usage_guide.html:." \
-            --icon "assets/app.icns" \
             main.py
 
       - name: Create DMG (optional)
