@@ -1,0 +1,49 @@
+name: Build & Release (Windows)
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: CI smoke (file mode)
+        run: |
+          python tools/ci_smoke_test.py
+
+      - name: Build (PyInstaller onedir)
+        run: |
+          pyinstaller -y app.spec --clean
+
+      - name: Pack Release Zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $tag = "${{ github.ref_name }}"
+          $zip = "release/ExcelMatcherUniversal_win_${{tag}}.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "dist/ExcelMatcherUniversal/*" -DestinationPath $zip
+        id: pack
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

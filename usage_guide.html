@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExcelMatcher 사용 가이드</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --secondary: #ecf0f1;
+            --text: #34495e;
+            --highlight: #f1c40f;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        p.subtitle {
+            font-size: 1.1em;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+        }
+
+        .step-container {
+            display: grid;
+            gap: 20px;
+        }
+
+        .step {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-left: 5px solid var(--accent);
+        }
+
+        .step:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: var(--primary);
+            margin: 0 0 15px 0;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+        }
+
+        .step-number {
+            background: var(--primary);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+            margin-right: 10px;
+            font-weight: 700;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        .tip-box {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 40px;
+        }
+
+        .tip-box h2 {
+            color: #f1c40f;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+        }
+
+        .highlight {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: var(--accent);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #95a5a6;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚀 ExcelMatcher 가이드</h1>
+    <p class="subtitle">복잡한 엑셀 매칭 작업을 단 몇 번의 클릭으로 해결하세요.</p>
+
+    <div class="step-container">
+        <div class="step">
+            <h2><span class="step-number">1</span> 기준 데이터 불러오기 (Main)</h2>
+            <p>매칭의 중심이 될 파일을 선택합니다.</p>
+            <ul>
+                <li><strong>파일 선택</strong>: '찾기 (Browse)' 버튼을 클릭하거나, 이미 열려있다면 새로고침하세요.</li>
+                <li><strong>Key 지정</strong>: 고유값(전화번호, ID 등)이 있는 컬럼을 선택합니다.</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">2</span> 대상 데이터 불러오기 (Target)</h2>
+            <p>데이터를 가져올 원본 파일을 선택합니다.</p>
+            <ul>
+                <li>기준 파일과 동일한 Key 값을 가진 컬럼을 선택해 연결합니다.</li>
+                <li>예시: 기준 파일의 <code>휴대폰번호</code> ↔ 대상 파일의 <code>연락처</code></li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">3</span> 가져올 데이터 선택</h2>
+            <p>매칭 성공 시 가져오고 싶은 정보들을 체크합니다.</p>
+            <ul>
+                <li>화면 중앙 리스트에서 필요한 항목을 <span class="highlight">체크(☑)</span>하세요.</li>
+                <li>자주 쓰는 조합은 상단의 <strong>'선택 저장'</strong> 기능으로 편리하게 관리하세요.</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h2><span class="step-number">4</span> 매칭 실행 (RUN)</h2>
+            <p>하단의 <strong>'매칭 실행'</strong> 버튼을 누르면 즉시 결과 파일이 생성됩니다.</p>
+        </div>
+    </div>
+
+    <div class="tip-box">
+        <h2>💡 전문가 팁 (Pro Tips)</h2>
+        <ul>
+            <li><strong>오타 보정 (Fuzzy Match)</strong>: 'Apple'과 'Appel' 처럼 미세하게 다른 텍스트도 자동으로 찾아냅니다.</li>
+            <li><strong>색상 강조</strong>: 매칭된 데이터가 있는 행에 배경색을 칠해 시각적으로 구분해줍니다.</li>
+            <li><strong>치환 설정</strong>: '(주)', '공백' 등 불필요한 문자를 자동으로 제거하고 매칭할 수 있습니다.</li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p><strong>ExcelMatcher Platform</strong> &copy; 2026</p>
+        <p>문의 및 기술지원: <a href="mailto:bough38@gmail.com">bough38@gmail.com</a></p>
+    </div>
+
+</body>
+
+</html>

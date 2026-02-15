@@ -1,0 +1,7 @@
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1
+xlsxwriter>=3.1
+xlwings>=0.30
+rapidfuzz>=3.0
+pyinstaller>=6.0
