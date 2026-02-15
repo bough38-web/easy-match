@@ -39,7 +39,13 @@ from admin_panel import AdminPanel
 
 APP_TITLE = "Easy Match(이지 매치)"
 APP_DESCRIPTION = "엑셀과 CSV를 하나로, 클릭 한 번으로 끝나는 데이터 매칭"
-OUT_DIR = os.path.join(os.getcwd(), "outputs")
+
+# 출력 디렉토리를 사용자의 Documents 폴더로 설정 (macOS 호환성)
+if sys.platform == "darwin":  # macOS
+    OUT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "EasyMatch_Outputs")
+else:  # Windows
+    OUT_DIR = os.path.join(os.getcwd(), "outputs")
+
 from config import PRESET_FILE, REPLACE_FILE, get_system_font
 os.makedirs(OUT_DIR, exist_ok=True)
 
