@@ -5,3 +5,4 @@ xlsxwriter>=3.1
 xlwings>=0.30
 rapidfuzz>=3.0
 pyinstaller>=6.0
+tkinterdnd2>=0.3.0

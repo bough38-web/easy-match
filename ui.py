@@ -429,6 +429,11 @@ class SourceFrame(ttk.LabelFrame):
         browse_btn.pack(side="left", padx=5)
         ToolTip(browse_btn, "Excel 또는 CSV 파일을 선택합니다\n(xlsx, xls, csv 지원)")
 
+        # Add visual hint for drag and drop
+        if DRAG_DROP_AVAILABLE:
+            dnd_label = ttk.Label(self, text="💡 팁: 파일을 이곳에 끌어서 놓으세요 (Drag & Drop)", font=(get_system_font()[0], 9), foreground="gray")
+            dnd_label.pack(anchor="w", padx=5, pady=(2, 0))
+
         self.o_frame = ttk.Frame(self)
         self.cb_book = ttk.Combobox(self.o_frame, textvariable=self.book, state="readonly")
         self.cb_book.pack(side="left", fill="x", expand=True)
@@ -452,7 +457,7 @@ class SourceFrame(ttk.LabelFrame):
         if self.is_base:
             key_frame = ttk.LabelFrame(self, text="매칭 키 (Key) 선택", padding=5)
             key_frame.pack(fill="x", pady=(5, 0))
-            self.key_listbox = MultiSelectListBox(key_frame, height=3)
+            self.key_listbox = MultiSelectListBox(key_frame, height=5)
             self.key_listbox.pack(fill="x")
 
         self._refresh_ui()
@@ -783,7 +788,13 @@ class ColumnSelectorDialog(tk.Toplevel):
 
 
 
-class App(tk.Tk):
+# Determine base class for App
+if DRAG_DROP_AVAILABLE:
+    BaseApp = TkinterDnD.Tk
+else:
+    BaseApp = tk.Tk
+
+class App(BaseApp):
     def __init__(self, license_info=None):
         super().__init__()
         self.license_info = license_info or {"type": "personal", "expiry": "-"}
