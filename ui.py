@@ -431,7 +431,7 @@ class SourceFrame(ttk.LabelFrame):
 
         # Add visual hint for drag and drop
         if DRAG_DROP_AVAILABLE:
-            dnd_label = ttk.Label(self, text="💡 팁: 파일을 이곳에 끌어서 놓으세요 (Drag & Drop)", font=(get_system_font()[0], 9), foreground="gray")
+            dnd_label = ttk.Label(self, text="(Tip) 파일을 이곳에 끌어서 놓으세요 (Drag & Drop)", font=(get_system_font()[0], 9), foreground="gray")
             dnd_label.pack(anchor="w", padx=5, pady=(2, 0))
 
         self.o_frame = ttk.Frame(self)
@@ -690,7 +690,7 @@ class ColumnSelectorDialog(tk.Toplevel):
         # Title
         title_label = ttk.Label(
             main_frame,
-            text="📋 가져올 컬럼을 선택하세요",
+            text="[선택] 가져올 컬럼을 선택하세요",
             font=(get_system_font()[0], 12, "bold")
         )
         title_label.pack(pady=(0, 10))
@@ -713,13 +713,13 @@ class ColumnSelectorDialog(tk.Toplevel):
         
         ttk.Button(
             quick_btns, 
-            text="✓ 전체 선택", 
+            text="[V] 전체 선택", 
             command=self.col_list.check_all
         ).pack(side="left", fill="x", expand=True, padx=(0, 2))
         
         ttk.Button(
             quick_btns, 
-            text="✗ 선택 해제", 
+            text="[X] 선택 해제", 
             command=self.col_list.uncheck_all
         ).pack(side="left", fill="x", expand=True, padx=(2, 0))
         
@@ -1220,7 +1220,7 @@ class App(BaseApp):
         
         self.btn_select_cols = ttk.Button(
             btn_frame,
-            text="📋 컬럼 선택 (Select Columns)",
+            text="[선택] 컬럼 선택 (Select Columns)",
             command=self._open_column_selector,
             style="Accent.TButton"
         )
@@ -1229,14 +1229,14 @@ class App(BaseApp):
         # Quick select all button
         ttk.Button(
             btn_frame,
-            text="✓ 전체 선택",
+            text="[V] 전체 선택",
             command=self._select_all_columns
         ).pack(side="left", padx=(0, 5))
         
         # Clear selection button
         ttk.Button(
             btn_frame,
-            text="✗ 선택 해제",
+            text="[X] 선택 해제",
             command=self._clear_column_selection
         ).pack(side="left")
         
@@ -1560,7 +1560,7 @@ class App(BaseApp):
             if count > 3:
                 preview += f" 외 {count - 3}개"
             self.col_info_label.config(
-                text=f"✓ {count}개 선택됨: {preview}",
+                text=f"[V] {count}개 선택됨: {preview}",
                 foreground="green"
             )
 
