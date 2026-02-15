@@ -658,6 +658,131 @@ class GridCheckList(ttk.Frame):
         self._render([it for it in self.all_items if q in it.lower()] if q else self.all_items)
 
 
+# -------------------------
+# Column Selector Dialog
+# -------------------------
+class ColumnSelectorDialog(tk.Toplevel):
+    """Popup dialog for selecting columns with search functionality"""
+    
+    def __init__(self, parent, title="컬럼 선택", current_selection=None):
+        super().__init__(parent)
+        self.title(title)
+        self.geometry("700x500")
+        self.resizable(True, True)
+        
+        # Center the dialog
+        self.transient(parent)
+        self.grab_set()
+        
+        # Result
+        self.result = None
+        self.current_selection = current_selection or []
+        
+        # Main frame
+        main_frame = ttk.Frame(self, padding=10)
+        main_frame.pack(fill="both", expand=True)
+        
+        # Title
+        title_label = ttk.Label(
+            main_frame,
+            text="📋 가져올 컬럼을 선택하세요",
+            font=(get_system_font()[0], 12, "bold")
+        )
+        title_label.pack(pady=(0, 10))
+        
+        # Info label
+        info_label = ttk.Label(
+            main_frame,
+            text="검색창에 키워드를 입력하여 컬럼을 필터링할 수 있습니다",
+            foreground="gray"
+        )
+        info_label.pack(pady=(0, 5))
+        
+        # Column list with search (larger height for popup)
+        self.col_list = GridCheckList(main_frame, columns=4, height=300)
+        self.col_list.pack(fill="both", expand=True, pady=5)
+        
+        # Quick action buttons
+        quick_btns = ttk.Frame(main_frame)
+        quick_btns.pack(fill="x", pady=5)
+        
+        ttk.Button(
+            quick_btns, 
+            text="✓ 전체 선택", 
+            command=self.col_list.check_all
+        ).pack(side="left", fill="x", expand=True, padx=(0, 2))
+        
+        ttk.Button(
+            quick_btns, 
+            text="✗ 선택 해제", 
+            command=self.col_list.uncheck_all
+        ).pack(side="left", fill="x", expand=True, padx=(2, 0))
+        
+        # Bottom buttons
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill="x", pady=(10, 0))
+        
+        ttk.Button(
+            btn_frame,
+            text="취소",
+            command=self._cancel
+        ).pack(side="right", padx=(5, 0))
+        
+        ttk.Button(
+            btn_frame,
+            text="확인",
+            command=self._ok,
+            style="Accent.TButton"  # Highlighted button
+        ).pack(side="right")
+        
+        # Selected count label
+        self.count_label = ttk.Label(btn_frame, text="선택: 0개", foreground="blue")
+        self.count_label.pack(side="left")
+        
+        # Update count on checkbox changes
+        self._update_count()
+        
+        # Bind escape key to cancel
+        self.bind("<Escape>", lambda e: self._cancel())
+        
+        # Bind enter key to confirm
+        self.bind("<Return>", lambda e: self._ok())
+    
+    def set_items(self, items):
+        """Set available columns"""
+        self.col_list.set_items(items)
+        # Restore previous selection
+        if self.current_selection:
+            self.col_list.set_checked_items(self.current_selection)
+        self._update_count()
+    
+    def _update_count(self):
+        """Update selected count label"""
+        try:
+            count = len(self.col_list.checked())
+            self.count_label.config(text=f"선택: {count}개")
+            # Schedule next update
+            self.after(500, self._update_count)
+        except:
+            pass  # Dialog might be destroyed
+    
+    def _ok(self):
+        """Confirm selection"""
+        self.result = self.col_list.checked()
+        self.destroy()
+    
+    def _cancel(self):
+        """Cancel selection"""
+        self.result = None
+        self.destroy()
+    
+    def show(self):
+        """Show dialog and return selected columns"""
+        self.wait_window()
+        return self.result
+
+
+
 class App(tk.Tk):
     def __init__(self, license_info=None):
         super().__init__()
@@ -1062,28 +1187,54 @@ class App(tk.Tk):
         del_preset_btn.pack(side="left", padx=2)
         ToolTip(del_preset_btn, "선택한 프리셋을 삭제합니다")
 
-        # --- 3. Middle Content (Remaining Space) ---
+        # --- 3. Middle Content (Column Selection) ---
         mid_content = ttk.Frame(main)
-        mid_content.pack(side="top", fill="both", expand=True)
+        mid_content.pack(side="top", fill="x", pady=10)
 
-        ttk.Label(
-            mid_content, 
-            text="가져올 컬럼 선택 (4열 보기):", 
-            font=(get_system_font()[0], 11, "bold")
-        ).pack(anchor="w", pady=(5, 5))
+        # Column selection button and info
+        col_frame = ttk.LabelFrame(mid_content, text="가져올 컬럼 선택", padding=10)
+        col_frame.pack(fill="x")
         
-        self.col_list = GridCheckList(mid_content, height=4)  # Further reduced to 4 rows
-        self.col_list.pack(fill="both", expand=True, pady=5)
-
-        btns = ttk.Frame(mid_content)
-        btns.pack(fill="x", pady=5)
+        # Info label
+        self.col_info_label = ttk.Label(
+            col_frame,
+            text="컬럼을 선택하려면 아래 버튼을 클릭하세요",
+            foreground="gray"
+        )
+        self.col_info_label.pack(pady=(0, 10))
         
-        # Style improvement for buttons
-        btn_all = ttk.Button(btns, text="전체 선택 (All)", command=self.col_list.check_all)
-        btn_all.pack(side="left", fill="x", expand=True, padx=(0, 2))
+        # Open dialog button
+        btn_frame = ttk.Frame(col_frame)
+        btn_frame.pack(fill="x")
         
-        btn_none = ttk.Button(btns, text="선택 해제 (None)", command=self.col_list.uncheck_all)
-        btn_none.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        self.btn_select_cols = ttk.Button(
+            btn_frame,
+            text="📋 컬럼 선택 (Select Columns)",
+            command=self._open_column_selector,
+            style="Accent.TButton"
+        )
+        self.btn_select_cols.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        # Quick select all button
+        ttk.Button(
+            btn_frame,
+            text="✓ 전체 선택",
+            command=self._select_all_columns
+        ).pack(side="left", padx=(0, 5))
+        
+        # Clear selection button
+        ttk.Button(
+            btn_frame,
+            text="✗ 선택 해제",
+            command=self._clear_column_selection
+        ).pack(side="left")
+        
+        # Store selected columns
+        self.selected_columns = []
+        
+        # Hidden GridCheckList for compatibility (will be populated but not shown)
+        self.col_list = GridCheckList(mid_content, height=0)
+        # Don't pack it - it's hidden
         
         # Force menu update
         def force_menu():
@@ -1303,8 +1454,104 @@ class App(tk.Tk):
     def apply_preset(self, event=None):
         name = self.cb_preset.get()
         if name in self.presets:
+            # Apply to hidden col_list for compatibility
             cnt = self.col_list.set_checked_items(self.presets[name])
+            # Also update selected_columns
+            self.selected_columns = self.presets[name].copy()
+            self._update_column_info()
             self._log(f"프리셋 [{name}] 적용됨 ({cnt}개 항목 선택)")
+    
+    def _open_column_selector(self):
+        """Open popup dialog for column selection"""
+        # Get available columns from target data
+        cfg = self.tgt_ui.get_config()
+        if not cfg.get("sheet"):
+            messagebox.showwarning("경고", "먼저 대상 데이터를 선택하세요.")
+            return
+        
+        # Load columns
+        try:
+            if cfg["type"] == "file":
+                if not cfg["path"] or not os.path.exists(cfg["path"]):
+                    messagebox.showwarning("경고", "대상 파일을 찾을 수 없습니다.")
+                    return
+                cols = get_columns(cfg["path"], cfg["sheet"], cfg["header"])
+            else:
+                cols = get_columns_from_open(cfg["book"], cfg["sheet"], cfg["header"])
+            
+            if not cols:
+                messagebox.showwarning("경고", "대상 데이터에서 컬럼을 찾을 수 없습니다.")
+                return
+            
+            # Open dialog
+            dialog = ColumnSelectorDialog(
+                self, 
+                title="가져올 컬럼 선택",
+                current_selection=self.selected_columns
+            )
+            dialog.set_items(cols)
+            result = dialog.show()
+            
+            if result is not None:  # User clicked OK
+                self.selected_columns = result
+                # Update hidden col_list for compatibility
+                self.col_list.set_items(cols)
+                self.col_list.set_checked_items(result)
+                self._update_column_info()
+                self._log(f"컬럼 선택 완료: {len(result)}개 선택됨")
+        
+        except Exception as e:
+            messagebox.showerror("오류", f"컬럼 로드 실패:\n{e}")
+            self._log(f"컬럼 로드 오류: {e}")
+    
+    def _select_all_columns(self):
+        """Select all available columns"""
+        cfg = self.tgt_ui.get_config()
+        if not cfg.get("sheet"):
+            messagebox.showwarning("경고", "먼저 대상 데이터를 선택하세요.")
+            return
+        
+        try:
+            if cfg["type"] == "file":
+                if not cfg["path"] or not os.path.exists(cfg["path"]):
+                    return
+                cols = get_columns(cfg["path"], cfg["sheet"], cfg["header"])
+            else:
+                cols = get_columns_from_open(cfg["book"], cfg["sheet"], cfg["header"])
+            
+            if cols:
+                self.selected_columns = list(cols)
+                self.col_list.set_items(cols)
+                self.col_list.check_all()
+                self._update_column_info()
+                self._log(f"전체 선택: {len(cols)}개 컬럼")
+        except Exception as e:
+            self._log(f"전체 선택 오류: {e}")
+    
+    def _clear_column_selection(self):
+        """Clear all column selections"""
+        self.selected_columns = []
+        self.col_list.uncheck_all()
+        self._update_column_info()
+        self._log("컬럼 선택 해제됨")
+    
+    def _update_column_info(self):
+        """Update column selection info label"""
+        count = len(self.selected_columns)
+        if count == 0:
+            self.col_info_label.config(
+                text="컬럼을 선택하려면 아래 버튼을 클릭하세요",
+                foreground="gray"
+            )
+        else:
+            # Show first few column names
+            preview = ", ".join(self.selected_columns[:3])
+            if count > 3:
+                preview += f" 외 {count - 3}개"
+            self.col_info_label.config(
+                text=f"✓ {count}개 선택됨: {preview}",
+                foreground="green"
+            )
 
     # -------------
     # Header loaders
