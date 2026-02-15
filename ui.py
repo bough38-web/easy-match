@@ -1475,9 +1475,9 @@ class App(tk.Tk):
                 if not cfg["path"] or not os.path.exists(cfg["path"]):
                     messagebox.showwarning("경고", "대상 파일을 찾을 수 없습니다.")
                     return
-                cols = get_columns(cfg["path"], cfg["sheet"], cfg["header"])
+                cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
             else:
-                cols = get_columns_from_open(cfg["book"], cfg["sheet"], cfg["header"])
+                cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
             
             if not cols:
                 messagebox.showwarning("경고", "대상 데이터에서 컬럼을 찾을 수 없습니다.")
@@ -1515,9 +1515,9 @@ class App(tk.Tk):
             if cfg["type"] == "file":
                 if not cfg["path"] or not os.path.exists(cfg["path"]):
                     return
-                cols = get_columns(cfg["path"], cfg["sheet"], cfg["header"])
+                cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
             else:
-                cols = get_columns_from_open(cfg["book"], cfg["sheet"], cfg["header"])
+                cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
             
             if cols:
                 self.selected_columns = list(cols)
