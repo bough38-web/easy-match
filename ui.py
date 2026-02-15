@@ -334,39 +334,100 @@ class ReplacementEditor(tk.Toplevel):
         return self.rules
 
 
-class MultiSelectListBox(ttk.Frame):
-    def __init__(self, master, height=5):
+# -------------------------
+# Grid Check List (Moved from below to allow inheritance)
+# -------------------------
+class GridCheckList(ttk.Frame):
+    def __init__(self, master, columns=4, height=300):
         super().__init__(master)
-        self.listbox = tk.Listbox(
-            self, selectmode="multiple", height=height, exportselection=False
-        )
-        sb = ttk.Scrollbar(self, orient="vertical", command=self.listbox.yview)
-        self.listbox.configure(yscrollcommand=sb.set)
-        self.listbox.pack(side="left", fill="both", expand=True)
+        self.columns = columns
+        self.vars: dict[str, tk.BooleanVar] = {}
+
+        top = ttk.Frame(self)
+        top.pack(fill="x", pady=(0, 4))
+        self.q = tk.StringVar()
+        ent = ttk.Entry(top, textvariable=self.q)
+        ent.pack(side="left", fill="x", expand=True)
+        ent.bind("<KeyRelease>", lambda e: self._filter())
+        ttk.Button(top, text="지우기", width=6, command=self._clear).pack(side="left", padx=4)
+
+        self.canvas = tk.Canvas(self, height=height, bg="white", highlightthickness=0)
+        sb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.inner = ttk.Frame(self.canvas)
+        self.inner_id = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+
+        self.canvas.configure(yscrollcommand=sb.set)
+        self.canvas.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
-        ttk.Label(
-            self,
-            text="(Ctrl/Shift+클릭으로 다중 선택)",
-            font=(get_system_font()[0], 10),
-            foreground="gray",
-        ).pack(side="bottom", anchor="w")
+
+        self.inner.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self.inner_id, width=e.width))
+
+        self.all_items: list[str] = []
 
     def set_items(self, items):
-        self.listbox.delete(0, tk.END)
+        self.all_items = list(items or [])
+        self.vars.clear()
+        for w in self.inner.winfo_children():
+            w.destroy()
+        if not self.all_items:
+            ttk.Label(self.inner, text="(데이터 없음)").pack()
+            return
+        for it in self.all_items:
+            self.vars[it] = tk.BooleanVar(value=False)
+        self._render(self.all_items)
+
+    def _render(self, items):
+        for w in self.inner.winfo_children():
+            w.destroy()
+        for idx, it in enumerate(items):
+            cb = ttk.Checkbutton(self.inner, text=it, variable=self.vars[it])
+            cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=2)
+        for i in range(self.columns):
+            self.inner.columnconfigure(i, weight=1)
+
+    def checked(self):
+        return [k for k, v in self.vars.items() if v.get()]
+
+    def check_all(self):
+        for v in self.vars.values():
+            v.set(True)
+
+    def uncheck_all(self):
+        for v in self.vars.values():
+            v.set(False)
+
+    def set_checked_items(self, items):
+        self.uncheck_all()
+        cnt = 0
         for it in items or []:
-            self.listbox.insert(tk.END, it)
+            if it in self.vars:
+                self.vars[it].set(True)
+                cnt += 1
+        return cnt
+
+    def _clear(self):
+        self.q.set("")
+        self._render(self.all_items)
+
+    def _filter(self):
+        q = (self.q.get() or "").strip().lower()
+        self._render([it for it in self.all_items if q in it.lower()] if q else self.all_items)
+
+
+class MultiSelectListBox(GridCheckList):
+    """Wrapper around GridCheckList to replace the old vertical Listbox"""
+    def __init__(self, master, columns=4, height=150):
+        # Allow passing height in pixels
+        super().__init__(master, columns=columns, height=height)
 
     def get_selected(self):
-        return [self.listbox.get(i) for i in self.listbox.curselection()]
+        # Maintain compatibility with old Listbox API
+        return self.checked()  
 
     def select_item(self, item):
-        self.listbox.selection_clear(0, tk.END)
-        try:
-            idx = self.listbox.get(0, tk.END).index(item)
-            self.listbox.selection_set(idx)
-            self.listbox.see(idx)
-        except ValueError:
-            pass
+        # Maintain compatibility with old Listbox API
+        self.set_checked_items([item])
 
 
 class SourceFrame(ttk.LabelFrame):
@@ -585,85 +646,7 @@ class SourceFrame(ttk.LabelFrame):
         return []
 
 
-class GridCheckList(ttk.Frame):
-    def __init__(self, master, columns=4, height=300):
-        super().__init__(master)
-        self.columns = columns
-        self.vars: dict[str, tk.BooleanVar] = {}
 
-        top = ttk.Frame(self)
-        top.pack(fill="x", pady=(0, 4))
-        self.q = tk.StringVar()
-        ent = ttk.Entry(top, textvariable=self.q)
-        ent.pack(side="left", fill="x", expand=True)
-        ent.bind("<KeyRelease>", lambda e: self._filter())
-        ttk.Button(top, text="지우기", width=6, command=self._clear).pack(side="left", padx=4)
-
-        self.canvas = tk.Canvas(self, height=height, bg="white", highlightthickness=0)
-        sb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.inner = ttk.Frame(self.canvas)
-        self.inner_id = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
-
-        self.canvas.configure(yscrollcommand=sb.set)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
-
-        self.inner.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self.inner_id, width=e.width))
-
-        self.all_items: list[str] = []
-
-    def set_items(self, items):
-        self.all_items = list(items or [])
-        self.vars.clear()
-        for w in self.inner.winfo_children():
-            w.destroy()
-        if not self.all_items:
-            ttk.Label(self.inner, text="(데이터 없음)").pack()
-            return
-        for it in self.all_items:
-            self.vars[it] = tk.BooleanVar(value=False)
-        self._render(self.all_items)
-
-    def _render(self, items):
-        for w in self.inner.winfo_children():
-            w.destroy()
-        for idx, it in enumerate(items):
-            cb = ttk.Checkbutton(self.inner, text=it, variable=self.vars[it])
-            cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=2)
-        for i in range(self.columns):
-            self.inner.columnconfigure(i, weight=1)
-
-    def checked(self):
-        return [k for k, v in self.vars.items() if v.get()]
-
-    def check_all(self):
-        for v in self.vars.values():
-            v.set(True)
-
-    def uncheck_all(self):
-        for v in self.vars.values():
-            v.set(False)
-
-    def set_checked_items(self, items):
-        self.uncheck_all()
-        cnt = 0
-        for it in items or []:
-            if it in self.vars:
-                self.vars[it].set(True)
-                cnt += 1
-        return cnt
-
-    def _clear(self):
-        self.q.set("")
-        self._render(self.all_items)
-
-    def _filter(self):
-        q = (self.q.get() or "").strip().lower()
-        self._render([it for it in self.all_items if q in it.lower()] if q else self.all_items)
-
-
-# -------------------------
 # Column Selector Dialog
 # -------------------------
 class ColumnSelectorDialog(tk.Toplevel):
