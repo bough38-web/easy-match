@@ -457,7 +457,7 @@ class SourceFrame(ttk.LabelFrame):
         if self.is_base:
             key_frame = ttk.LabelFrame(self, text="매칭 키 (Key) 선택", padding=5)
             key_frame.pack(fill="x", pady=(5, 0))
-            self.key_listbox = MultiSelectListBox(key_frame, height=5)
+            self.key_listbox = MultiSelectListBox(key_frame, height=120)
             self.key_listbox.pack(fill="x")
 
         self._refresh_ui()
