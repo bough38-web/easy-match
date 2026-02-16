@@ -1,15 +1,15 @@
 @echo off
 chcp 65001
-echo [BUILD] Starting Windows Build for ExcelMatcher...
+echo [BUILD] ExcelMatcher Windows 빌드 시작...
 
-REM Check PyInstaller
+REM PyInstaller 확인
 pyinstaller --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] PyInstaller not found. Installing...
+    echo [오류] PyInstaller가 설치되지 않았습니다. 설치를 시작합니다...
     pip install pyinstaller
 )
 
-REM Clean previous build
+REM 이전 빌드 정리
 if exist "dist" rmdir /s /q "dist"
 if exist "build" rmdir /s /q "build"
 
@@ -21,31 +21,27 @@ REM --name: output filename
 REM --add-data: include additional files
 REM --hidden-import: ensure dependencies are included
 
-echo [BUILD] Running PyInstaller...
+echo [BUILD] PyInstaller 실행 중...
 pyinstaller --noconfirm --onefile --windowed ^
     --name "EasyMatch_v1.0" ^
     --hidden-import "pandas" ^
     --hidden-import "xlwings" ^
     --hidden-import "openpyxl" ^
     --hidden-import "xlsxwriter" ^
-    --hidden-import "PIL" ^
-    --hidden-import "PIL.Image" ^
-    --hidden-import "PIL.ImageTk" ^
+    --collect-all "Pillow" ^
     --add-data "assets;assets" ^
-    --add-data "presets.json;." ^
-    --add-data "replacements.json;." ^
     --add-data "usage_guide.html;." ^
     --icon "assets\app.ico" ^
     main.py
 
 if %errorlevel% neq 0 (
-    echo [ERROR] Build failed!
+    echo [오류] 빌드 실패!
     pause
     exit /b 1
 )
 
-echo [SUCCESS] Build complete! Check 'dist/EasyMatch_v1.0.exe'
+echo [성공] 빌드 완료! 'dist/EasyMatch_v1.0.exe'를 확인하세요.
 echo.
-echo You can now distribute the EXE file to users.
-echo The EXE is standalone and includes all dependencies.
+echo 이제 EXE 파일을 사용자에게 배포할 수 있습니다.
+echo EXE 파일은 독립 실행형이며 모든 의존성을 포함합니다.
 pause

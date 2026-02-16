@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이지 매치 v1.0.0 | 인생 최고의 엑셀 툴</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --accent: #f59e0b;
+            --dark: #0f172a;
+            --light: #f8fafc;
+            --white: #ffffff;
+            --gold: #fbbf24;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #1e293b;
+            background: var(--white);
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--dark);
+            color: white;
+            padding: 140px 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-badge {
+            background: var(--accent);
+            color: var(--dark);
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-weight: 800;
+            font-size: 0.9em;
+            display: inline-block;
+            margin-bottom: 25px;
+        }
+
+        .hero h1 {
+            font-size: 4.5em;
+            font-weight: 900;
+            line-height: 1.1;
+            margin: 0;
+            letter-spacing: -2px;
+        }
+
+        .hero h1 span {
+            color: var(--gold);
+        }
+
+        .hero p {
+            font-size: 1.6em;
+            opacity: 0.8;
+            max-width: 800px;
+            margin: 30px auto;
+        }
+
+        /* Stats Section */
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-top: 60px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-val {
+            font-size: 2.5em;
+            font-weight: 900;
+            color: var(--gold);
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 1em;
+            opacity: 0.6;
+        }
+
+        .section {
+            padding: 120px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .center {
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 3em;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 60px;
+            color: var(--dark);
+            letter-spacing: -1px;
+        }
+
+        /* Problem Section */
+        .problem-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 50px;
+        }
+
+        .problem-card {
+            padding: 45px;
+            border-radius: 40px;
+        }
+
+        .p-bad {
+            background: #fef2f2;
+            border: 2px solid #fee2e2;
+        }
+
+        .p-good {
+            background: #ecfdf5;
+            border: 2px solid #d1fae5;
+        }
+
+        .problem-card h3 {
+            font-size: 1.8em;
+            margin-top: 0;
+        }
+
+        .p-bad h3 {
+            color: #991b1b;
+        }
+
+        .p-good h3 {
+            color: #065f46;
+        }
+
+        .problem-card ul {
+            padding: 0;
+            list-style: none;
+        }
+
+        .problem-card li {
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        /* Feature Highlights */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-top: 100px;
+        }
+
+        .feature-item {
+            text-align: center;
+            padding: 40px;
+            border-radius: 30px;
+            background: var(--light);
+            transition: 0.4s;
+        }
+
+        .feature-item:hover {
+            transform: translateY(-15px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .feature-item h3 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        /* Pricing Area */
+        .price-anchor {
+            background: var(--light);
+            padding: 120px 20px;
+            border-radius: 80px;
+            text-align: center;
+            margin: 100px 0;
+        }
+
+        .price-box {
+            background: white;
+            padding: 70px;
+            border-radius: 50px;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.05);
+            display: inline-block;
+            max-width: 600px;
+            width: 100%;
+            position: relative;
+        }
+
+        .tag-best {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--dark);
+            color: white;
+            padding: 8px 24px;
+            border-radius: 50px;
+            font-weight: 800;
+        }
+
+        .p-title {
+            font-size: 2em;
+            font-weight: 900;
+            color: var(--dark);
+            margin: 0;
+        }
+
+        .p-desc {
+            color: #64748b;
+            margin: 15px 0 30px;
+        }
+
+        .p-val {
+            font-size: 4.5em;
+            font-weight: 900;
+            color: var(--primary);
+            margin: 30px 0;
+        }
+
+        .p-val span {
+            font-size: 0.4em;
+            color: #94a3b8;
+            text-decoration: line-through;
+            margin-right: 15px;
+        }
+
+        .cta-btn {
+            background: var(--primary);
+            color: white;
+            padding: 25px 80px;
+            border-radius: 100px;
+            font-size: 1.6em;
+            font-weight: 900;
+            text-decoration: none;
+            display: inline-block;
+            transition: 0.3s;
+            box-shadow: 0 20px 40px rgba(30, 58, 138, 0.3);
+        }
+
+        .cta-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 25px 50px rgba(30, 58, 138, 0.4);
+        }
+
+        .guarantee {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 60px;
+            font-weight: 700;
+            color: #64748b;
+        }
+
+        .footer {
+            background: var(--dark);
+            color: #475569;
+            padding: 100px 20px;
+            text-align: center;
+        }
+
+        @media (max-width: 900px) {
+            .hero h1 {
+                font-size: 2.8em;
+            }
+
+            .problem-box,
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .price-box {
+                padding: 40px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="hero">
+        <div class="hero-badge">BEST-SELLING PREVIEW v1.0.0</div>
+        <h1>당신의 엑셀 인생은<br><span>이지 매치</span> 전후로 나뉩니다.</h1>
+        <p>복잡한 수식? 지루한 복사 붙여넣기?<br>이제 엔진에 맡기고 당신의 시간을 되찾으세요.</p>
+
+        <div class="stats">
+            <div class="stat-item"><span class="stat-val">0.2s</span><span class="stat-label">평균 매칭 속도</span></div>
+            <div class="stat-item"><span class="stat-val">100%</span><span class="stat-label">매칭 정합성</span></div>
+            <div class="stat-item"><span class="stat-val">ZERO</span><span class="stat-label">필요한 수식 지식</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>"아직도 퇴근 직전에<br><span style="color:#ef4444">VLOOKUP 오류</span>와 싸우시나요?"</h2>
+        <div class="problem-box">
+            <div class="problem-card p-bad">
+                <h3>❌ 기존의 고통</h3>
+                <ul>
+                    <li>🛑 파일 한번 합칠 때마다 기운 소진</li>
+                    <li>🛑 대용량 데이터에서 엑셀이 응답 없음</li>
+                    <li>🛑 눈으로는 똑같은데 매칭 안 되는 정체불명 오류</li>
+                    <li>🛑 반복되는 단순 노동에 깎여나가는 창의성</li>
+                </ul>
+            </div>
+            <div class="problem-card p-good">
+                <h3>✅ 이지 매치 혁신</h3>
+                <ul>
+                    <li>🚀 슥- 던지면 착- 붙는 드래그 앤 드롭</li>
+                    <li>🚀 50만 행도 멈춤 없이 쾌속 처리</li>
+                    <li>🚀 형태가 다른 데이터도 감쪽같이 찾아내는 보정</li>
+                    <li>🚀 직관적인 UI로 작업의 품격까지 상승</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="section center">
+        <h2>비교를 거부하는 압도적 성능</h2>
+        <div class="feature-grid">
+            <div class="feature-item">
+                <span class="feature-icon">⚡</span>
+                <h3>C-Optimized 엔진</h3>
+                <p>단순 매크로가 아닙니다. 고성능 데이터 과학 라이브러리로 무장한 전문 소프트웨어입니다.</p>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">🛡️</span>
+                <h3>철저한 보안 배포</h3>
+                <p>무단 복제 방지 시스템으로 판매자의 수익을 보호하고, 사용자 기기를 안전하게 인증합니다.</p>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">🎨</span>
+                <h3>메이저급 UX 디자인</h3>
+                <p>모든 프로세스에 테마 애니메이션을 적용하여 전문가용 툴다운 만족감을 선사합니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section center">
+        <h2>작업 과정을 혁신하는 시각적 피드백</h2>
+        <p style="font-size:1.2em; opacity:0.7;">이지 매치만의 '조립' 애니메이션은 데이터 시너지를 상징합니다.</p>
+        <div style="margin-top:50px; border-radius:40px; overflow:hidden; box-shadow:0 30px 60px rgba(0,0,0,0.15);">
+            <img src="user_manual_step2_match.png" alt="Visual Synergy" style="width:100%;">
+        </div>
+    </div>
+
+    <div class="price-anchor">
+        <div class="price-box">
+            <div class="tag-best">런칭 기념 파격 특가</div>
+            <p class="p-title">Easy Match v1.0.0 (Pro)</p>
+            <p class="p-desc">개인용/기업용 통합 솔루션 l 영구 소장 l 실시간 업데이트</p>
+            <div class="p-val"><span>₩99,000</span> ₩29,000</div>
+            <p style="color:#ef4444; font-weight:800; margin-bottom:40px;">* 선착순 30명 마감 시 정상가 환원</p>
+            <a href="#" class="cta-btn">지금 바로 라이선스 구매하기</a>
+        </div>
+
+        <div class="guarantee">
+            <span>✓ 100% 무인 전산 처리</span>
+            <span>✓ 평생 무료 업데이트</span>
+            <span>✓ 윈도우/맥 동시 지원</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <h2 style="color:white; margin-bottom:20px;">Easy Match by Se-eun Papa</h2>
+        <p>Expert Data Synchronization & Distribution Solution</p>
+        <div style="margin-top:50px; font-size:0.8em; opacity:0.3;">
+            © 2026 Easy Match Project Group. Any unauthorized reproduction is prohibited.
+        </div>
+    </div>
+
+</body>
+
+</html>

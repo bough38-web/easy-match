@@ -1,17 +1,17 @@
 #!/bin/bash
 
-APP_NAME="ExcelMatcher_v4.8"
+APP_NAME="ExcelMatcher_v1.0"
 
-echo "[BUILD] Starting macOS Build for $APP_NAME..."
+echo "[BUILD] $APP_NAME macOS 빌드 시작..."
 
-# Check PyInstaller
+# PyInstaller 확인
 if ! command -v pyinstaller &> /dev/null
 then
-    echo "[ERROR] PyInstaller could not be found. Please install: pip install pyinstaller"
+    echo "[오류] PyInstaller를 찾을 수 없습니다. 다음 명령어로 설치하세요: pip install pyinstaller"
     exit 1
 fi
 
-# Clean
+# 정리
 rm -rf dist build *.spec
 
 # Build
@@ -20,22 +20,36 @@ rm -rf dist build *.spec
 # but --onefile is cleaner for distribution if not signing. 
 # Let's use --windowed (which implies .app)
 
-echo "[BUILD] Running PyInstaller..."
+echo "[BUILD] PyInstaller 실행 중..."
 pyinstaller --noconfirm --windowed --clean \
     --name "$APP_NAME" \
+    --add-data "usage_guide.html:." \
+    --add-data "assets:assets" \
     --hidden-import "pandas" \
     --hidden-import "xlwings" \
     --hidden-import "openpyxl" \
     --hidden-import "xlsxwriter" \
+    --collect-all "Pillow" \
+    --exclude-module "PyQt5" \
+    --exclude-module "PyQt6" \
+    --exclude-module "qtpy" \
+    --exclude-module "QtPy" \
+    --exclude-module "jupyter" \
+    --exclude-module "notebook" \
+    --exclude-module "scipy" \
+    --exclude-module "matplotlib" \
+    --exclude-module "IPython" \
+    --exclude-module "sympy" \
+    --exclude-module "astropy" \
     main.py
 
 if [ $? -eq 0 ]; then
-    echo "[SUCCESS] Build finished!"
-    echo "App bundle: dist/$APP_NAME.app"
+    echo "[성공] 빌드 완료!"
+    echo "앱 번들: dist/$APP_NAME.app"
     
     # Optional: Create DMG (requires create-dmg)
     # echo "You can now package dist/$APP_NAME.app into a DMG."
 else
-    echo "[ERROR] Build failed."
+    echo "[오류] 빌드 실패."
     exit 1
 fi

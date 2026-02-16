@@ -4,6 +4,15 @@ import os
 import sys
 import traceback
 
+# Force PIL discovery by PyInstaller
+try:
+    import PIL
+    import PIL.Image
+    import PIL.ImageTk
+    print(f"[ExcelMatcher] PIL version: {PIL.__version__}")
+except ImportError as e:
+    print(f"[ExcelMatcher] Critical: PIL import failed in main: {e}")
+
 # -----------------------------
 # 터미널 로그 유틸
 # -----------------------------

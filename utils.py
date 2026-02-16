@@ -37,3 +37,13 @@ def get_fuzzy_mapper(base_keys: pd.Series, target_keys: pd.Series, threshold: in
         if score >= threshold and t_key != best:
             mapper[t_key] = best
     return mapper
+
+import re
+def remove_illegal_chars(val):
+    """Remove characters that are illegal in Excel (openpyxl)"""
+    if not isinstance(val, str):
+        return val
+    # Remove control characters (ASCII 0-31) except Tab, Newline, CR
+    # Also remove some other problematic unicode if needed?
+    # Usually [\x00-\x08\x0B\x0C\x0E-\x1F]
+    return re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', '', val)

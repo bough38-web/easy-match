@@ -1,4 +1,3 @@
-# ui.py
 from __future__ import annotations
 
 import os
@@ -7,6 +6,7 @@ import sys
 import tkinter as tk
 import traceback
 from tkinter import ttk, filedialog, messagebox, simpledialog
+from PIL import Image, ImageTk
 
 # Try to import tkinterdnd2 for drag and drop support
 try:
@@ -37,6 +37,77 @@ from commercial_config import (
 )
 from admin_panel import AdminPanel
 
+# -------------------------
+# Matched Data Preview Dialog
+# -------------------------
+def show_preview_dialog(parent, out_path, summary, preview_df):
+    dialog = tk.Toplevel(parent)
+    dialog.title("작업 완료 및 데이터 미리보기")
+    dialog.geometry("900x650")
+    dialog.transient(parent)
+    dialog.grab_set()
+
+    # Glassmorphism-style header in dialog
+    header = GradientFrame(dialog, color1="#2c3e50", color2="#1a2a3a", height=60)
+    header.pack(fill="x")
+    header.create_text(20, 30, text="매칭 결과 미리보기 (상위 5행)", font=(get_system_font()[0], 18, "bold"), fill="white", anchor="w")
+
+    main_frame = ttk.Frame(dialog, padding=20)
+    main_frame.pack(fill="both", expand=True)
+
+    # Summary box with accent border
+    summary_frame = tk.Frame(main_frame, bg="#f8f9fa", highlightbackground="#dee2e6", highlightthickness=1)
+    summary_frame.pack(fill="x", pady=(0, 20))
+    
+    inner_summary = tk.Frame(summary_frame, bg="#f8f9fa", padx=15, pady=15)
+    inner_summary.pack(fill="x")
+    
+    ttk.Label(inner_summary, text=summary, font=(get_system_font()[0], 12, "bold"), background="#f8f9fa").pack(anchor="w")
+    ttk.Label(inner_summary, text=f"저장 위치: {os.path.basename(out_path)}", font=(get_system_font()[0], 10), foreground="#2B579A", background="#f8f9fa").pack(anchor="w", pady=(5, 0))
+
+    # Table
+    table_frame = ttk.Frame(main_frame)
+    table_frame.pack(fill="both", expand=True)
+
+    cols = list(preview_df.columns)
+    tree = ttk.Treeview(table_frame, columns=cols, show="headings", height=8)
+    
+    # Add scrolls
+    vsb = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(table_frame, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+    for col in cols:
+        tree.heading(col, text=col)
+        # Approximate width based on content
+        tree.column(col, width=120, minwidth=80)
+
+    for _, row in preview_df.iterrows():
+        tree.insert("", "end", values=[str(v) for v in row])
+
+    tree.grid(row=0, column=0, sticky="nsew")
+    vsb.grid(row=0, column=1, sticky="ns")
+    hsb.grid(row=1, column=0, sticky="ew")
+    table_frame.grid_columnconfigure(0, weight=1)
+    table_frame.grid_rowconfigure(0, weight=1)
+
+    # Buttons
+    btn_frame = ttk.Frame(main_frame)
+    btn_frame.pack(fill="x", pady=(20, 0))
+    
+    def open_folder():
+        folder = os.path.dirname(out_path)
+        if sys.platform == "darwin":
+            import subprocess
+            subprocess.run(["open", folder])
+        else:
+            os.startfile(folder)
+
+    ttk.Button(btn_frame, text="폴더 열기", command=open_folder).pack(side="left", padx=5)
+    ttk.Button(btn_frame, text="확인 (닫기)", command=dialog.destroy).pack(side="right", padx=5)
+
+    dialog.wait_window()
+
 APP_TITLE = "Easy Match(이지 매치)"
 APP_DESCRIPTION = "엑셀과 CSV를 하나로, 클릭 한 번으로 끝나는 데이터 매칭"
 
@@ -48,6 +119,46 @@ else:  # Windows
 
 from config import PRESET_FILE, REPLACE_FILE, get_system_font
 os.makedirs(OUT_DIR, exist_ok=True)
+
+
+# -------------------------
+# Gradient Frame (Glassmorphism Effect)
+# Using a sleek, semi-transparent feeling gradient
+# -------------------------
+class GradientFrame(tk.Canvas):
+    def __init__(self, master, color1="#1a2a3a", color2="#2c3e50", **kwargs):
+        super().__init__(master, highlightthickness=0, **kwargs)
+        self.color1 = color1
+        self.color2 = color2
+        self.bind("<Configure>", self._draw_gradient)
+
+    def _draw_gradient(self, event=None):
+        self.delete("gradient")
+        width = self.winfo_width()
+        height = self.winfo_height()
+        if width == 0 or height == 0: return
+
+        (r1,g1,b1) = self.winfo_rgb(self.color1)
+        (r2,g2,b2) = self.winfo_rgb(self.color2)
+        
+        # 0-65535 -> 0-255
+        r1, g1, b1 = r1>>8, g1>>8, b1>>8
+        r2, g2, b2 = r2>>8, g2>>8, b2>>8
+
+        for i in range(height):
+            # Interpolate
+            r = int(r1 + (r2 - r1) * i / height)
+            g = int(g1 + (g2 - g1) * i / height)
+            b = int(b1 + (b2 - b1) * i / height)
+            color = "#%02x%02x%02x" % (r, g, b)
+            self.create_line(0, i, width, i, tags=("gradient",), fill=color)
+        
+        # Add Glass Highlight (Top)
+        self.create_line(0, 0, width, 0, fill="#5d6d7e", width=1, tags=("gradient",))
+        # Add Shadow (Bottom)
+        self.create_line(0, height-1, width, height-1, fill="#1c2833", width=1, tags=("gradient",))
+        
+        self.tag_lower("gradient")
 
 
 # -------------------------
@@ -430,131 +541,104 @@ class MultiSelectListBox(GridCheckList):
         self.set_checked_items([item])
 
 
-class SourceFrame(ttk.LabelFrame):
-    def __init__(self, master, title, mode_var, on_change=None, is_base=False):
+
+
+
+
+# Column Selector Dialog
+# -------------------------
+
+# Determine base class for App
+if DRAG_DROP_AVAILABLE:
+    BaseApp = TkinterDnD.Tk
+else:
+    BaseApp = tk.Tk
+
+# -------------------------
+# New UI Components for Redesign
+# -------------------------
+class FileLoaderFrame(ttk.LabelFrame):
+    def __init__(self, master, title, mode_var, on_change=None):
         super().__init__(master, text=title, padding=10)
         self.mode = mode_var
         self.on_change = on_change
-        self.is_base = is_base
-
+        
         self.path = tk.StringVar()
         self.book = tk.StringVar()
         self.sheet = tk.StringVar()
         self.header = tk.IntVar(value=1)
 
+        # Top: Mode selection
         top = ttk.Frame(self)
         top.pack(fill="x", pady=(0, 5))
         
-        file_radio = ttk.Radiobutton(
-            top, text="파일 불러오기", value="file", variable=self.mode, command=self._refresh_ui
-        )
-        file_radio.pack(side="left", padx=(0, 10))
-        ToolTip(file_radio, "Excel 또는 CSV 파일을 선택합니다")
+        ttk.Radiobutton(top, text="파일 불러오기", value="file", variable=self.mode, command=self._refresh_ui).pack(side="left", padx=(0, 10))
+        ttk.Radiobutton(top, text="열려있는 엑셀", value="open", variable=self.mode, command=self._refresh_ui).pack(side="left")
         
-        open_radio = ttk.Radiobutton(
-            top, text="열려있는 엑셀", value="open", variable=self.mode, command=self._refresh_ui
-        )
-        open_radio.pack(side="left")
-        ToolTip(open_radio, "현재 Excel에서 열려있는 파일을 사용합니다\n(xlwings 필요)")
-        
-        refresh_btn = ttk.Button(top, text="새로고침 (Refresh)", command=self.refresh_open)
-        refresh_btn.pack(side="right")
-        ToolTip(refresh_btn, "열려있는 Excel 파일 목록을 새로고침합니다")
+        # Align Refresh button
+        ttk.Button(top, text="새로고침", command=self.refresh_open, width=8).pack(side="right")
 
+        # File Mode UI
         self.f_frame = ttk.Frame(self)
-        path_entry = ttk.Entry(self.f_frame, textvariable=self.path)
-        path_entry.pack(side="left", fill="x", expand=True)
-        ToolTip(path_entry, "선택한 파일 경로가 표시됩니다\n파일을 여기에 드래그하여 선택할 수도 있습니다")
-        
-        # Add drag and drop support if available
+        entry = ttk.Entry(self.f_frame, textvariable=self.path)
+        entry.pack(side="left", fill="x", expand=True)
+        # Drag Drop bind
         if DRAG_DROP_AVAILABLE:
             try:
-                path_entry.drop_target_register(DND_FILES)
-                path_entry.dnd_bind('<<Drop>>', self._on_drop)
-                
-                # Visual feedback for drag over
+                entry.drop_target_register(DND_FILES)
+                entry.dnd_bind('<<Drop>>', self._on_drop)
+                # Visual feedback
                 def on_drag_enter(event):
-                    path_entry.config(background="#e8f5e9")  # Light green
+                    entry.config(background="#e8f5e9")
                     return event.action
-                
                 def on_drag_leave(event):
-                    path_entry.config(background="white")
+                    entry.config(background="white")
                     return event.action
-                
-                path_entry.dnd_bind('<<DragEnter>>', on_drag_enter)
-                path_entry.dnd_bind('<<DragLeave>>', on_drag_leave)
-            except Exception:
-                pass  # Silently fail if drag and drop setup fails
-        
-        browse_btn = ttk.Button(self.f_frame, text="찾기 (Browse)", command=self._pick_file)
-        browse_btn.pack(side="left", padx=5)
-        ToolTip(browse_btn, "Excel 또는 CSV 파일을 선택합니다\n(xlsx, xls, csv 지원)")
+                entry.dnd_bind('<<DragEnter>>', on_drag_enter)
+                entry.dnd_bind('<<DragLeave>>', on_drag_leave)
+            except: pass
 
-        # Add visual hint for drag and drop
-        if DRAG_DROP_AVAILABLE:
-            dnd_label = ttk.Label(self, text="(Tip) 파일을 이곳에 끌어서 놓으세요 (Drag & Drop)", font=(get_system_font()[0], 9), foreground="gray")
-            dnd_label.pack(anchor="w", padx=5, pady=(2, 0))
+        # Align Find button
+        ttk.Button(self.f_frame, text="찾기", command=self._pick_file, width=8).pack(side="right", padx=(5, 0))
 
+        # Open Mode UI
         self.o_frame = ttk.Frame(self)
         self.cb_book = ttk.Combobox(self.o_frame, textvariable=self.book, state="readonly")
         self.cb_book.pack(side="left", fill="x", expand=True)
         self.cb_book.bind("<<ComboboxSelected>>", self._on_book_select)
 
+        # Common UI (Sheet/Header)
         self.c_frame = ttk.Frame(self)
-        self.c_frame.pack(fill="x", pady=(5, 5))
+        self.c_frame.pack(fill="x", pady=(5, 0))
+        
         ttk.Label(self.c_frame, text="시트:").pack(side="left")
-        self.cb_sheet = ttk.Combobox(self.c_frame, textvariable=self.sheet, state="readonly", width=18)
+        self.cb_sheet = ttk.Combobox(self.c_frame, textvariable=self.sheet, state="readonly", width=15)
         self.cb_sheet.pack(side="left", padx=5)
         self.cb_sheet.bind("<<ComboboxSelected>>", self._notify_change)
-        ToolTip(self.cb_sheet, "데이터가 있는 시트를 선택합니다")
-
+        
         ttk.Label(self.c_frame, text="헤더:").pack(side="left", padx=(10, 0))
-        header_spin = ttk.Spinbox(
-            self.c_frame, from_=1, to=99, textvariable=self.header, width=5, command=self._notify_change
-        )
-        header_spin.pack(side="left", padx=5)
-        ToolTip(header_spin, "컬럼명이 있는 행 번호를 지정합니다\n(보통 1행)")
-
-        if self.is_base:
-            key_frame = ttk.LabelFrame(self, text="매칭 키 (Key) 선택", padding=5)
-            key_frame.pack(fill="x", pady=(5, 0))
-            self.key_listbox = MultiSelectListBox(key_frame, height=120)
-            self.key_listbox.pack(fill="x")
+        ttk.Spinbox(self.c_frame, from_=1, to=99, textvariable=self.header, width=5, command=self._notify_change).pack(side="left", padx=5)
 
         self._refresh_ui()
-    
+
     def _on_drop(self, event):
-        """Handle file drop event"""
         try:
-            # Get dropped file path (remove curly braces if present)
             file_path = event.data.strip('{}')
-            
-            # Validate file extension
             valid_extensions = ('.xlsx', '.xls', '.csv')
             if not file_path.lower().endswith(valid_extensions):
-                messagebox.showwarning(
-                    "파일 형식 오류",
-                    f"지원하지 않는 파일 형식입니다.\n\n지원 형식: {', '.join(valid_extensions)}"
-                )
+                messagebox.showwarning("파일 형식 오류", f"지원하지 않는 파일 형식입니다.")
                 return
-            
-            # Set the path
             self.path.set(file_path)
-            
-            # Load sheets
             try:
                 self.cb_sheet["values"] = get_sheet_names(file_path)
                 if self.cb_sheet["values"]:
                     self.cb_sheet.current(0)
-            except Exception:
-                pass
+            except Exception as e:
+                # Silently fail or log? Better to show if explicit file drop
+                messagebox.showerror("오류", f"시트 목록을 불러올 수 없습니다:\n{e}")
             
-            # Reset background color
             event.widget.config(background="white")
-            
-            # Notify change
             self._notify_change()
-            
         except Exception as e:
             messagebox.showerror("오류", f"파일을 불러올 수 없습니다:\n{str(e)}")
 
@@ -569,39 +653,22 @@ class SourceFrame(ttk.LabelFrame):
         self._notify_change()
 
     def _pick_file(self):
-        p = filedialog.askopenfilename(
-            filetypes=[("Excel", "*.xlsx *.xls *.csv"), ("All", "*.*")]
-        )
-        if not p:
-            return
+        p = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx *.xls *.csv"), ("All", "*.*")])
+        if not p: return
         self.path.set(p)
         try:
             self.cb_sheet["values"] = get_sheet_names(p)
             if self.cb_sheet["values"]:
                 self.cb_sheet.current(0)
-        except Exception:
-            pass
+        except Exception as e:
+            messagebox.showerror("오류", f"시트 목록을 불러올 수 없습니다:\n{e}")
         self._notify_change()
 
     def refresh_open(self):
-        if self.mode.get() != "open":
-            return
-
+        if self.mode.get() != "open": return
         if not xlwings_available():
-            messagebox.showwarning(
-                "열려있는 엑셀 모드 불가",
-                "xlwings/Excel 연동이 불가능합니다.\n\n"
-                "- Excel 설치 확인\n"
-                "- xlwings 설치(pip)\n"
-                "- macOS: Automation 권한 허용\n\n"
-                "파일 모드로 사용하거나 설치 후 다시 시도하세요.",
-            )
-            self.cb_book["values"] = []
-            self.book.set("")
-            self.cb_sheet["values"] = []
-            self.sheet.set("")
+            messagebox.showwarning("오류", "xlwings가 필요합니다.")
             return
-
         books = list_open_books()
         self.cb_book["values"] = books
         if books:
@@ -610,26 +677,19 @@ class SourceFrame(ttk.LabelFrame):
         else:
             self.book.set("")
             self.cb_sheet["values"] = []
-            self.sheet.set("")
-            return
-
         self._on_book_select()
 
     def _on_book_select(self, event=None):
-        if not self.book.get():
-            return
+        if not self.book.get(): return
         try:
             sheets = list_sheets(self.book.get())
             self.cb_sheet["values"] = sheets
-            if sheets:
-                self.cb_sheet.current(0)
-        except Exception as e:
-            messagebox.showerror("시트 조회 실패", str(e))
+            if sheets: self.cb_sheet.current(0)
+        except: pass
         self._notify_change()
 
     def _notify_change(self, event=None):
-        if self.on_change:
-            self.on_change()
+        if self.on_change: self.on_change()
 
     def get_config(self):
         return {
@@ -640,142 +700,35 @@ class SourceFrame(ttk.LabelFrame):
             "header": int(self.header.get()),
         }
 
-    def get_selected_keys(self):
-        if self.is_base and hasattr(self, "key_listbox"):
-            return self.key_listbox.get_selected()
-        return []
 
-
-
-# Column Selector Dialog
-# -------------------------
-class ColumnSelectorDialog(tk.Toplevel):
-    """Popup dialog for selecting columns with search functionality"""
-    
-    def __init__(self, parent, title="컬럼 선택", current_selection=None):
-        super().__init__(parent)
-        self.title(title)
-        self.geometry("700x500")
-        self.resizable(True, True)
+class ColumnSelectorFrame(ttk.LabelFrame):
+    def __init__(self, master, title, height=150):
+        super().__init__(master, text=title, padding=5)
         
-        # Center the dialog
-        self.transient(parent)
-        self.grab_set()
+        # Tools (Select All/None)
+        tools = ttk.Frame(self)
+        tools.pack(fill="x", pady=(0, 5))
         
-        # Result
-        self.result = None
-        self.current_selection = current_selection or []
+        ttk.Button(tools, text="[V] 전체 선택", command=self.check_all, width=12).pack(side="left", padx=(0, 2))
+        ttk.Button(tools, text="[X] 선택 해제", command=self.uncheck_all, width=12).pack(side="left", padx=(2, 0))
         
-        # Main frame
-        main_frame = ttk.Frame(self, padding=10)
-        main_frame.pack(fill="both", expand=True)
+        # List
+        self.list = GridCheckList(self, columns=3, height=height)
+        self.list.pack(fill="both", expand=True)
         
-        # Title
-        title_label = ttk.Label(
-            main_frame,
-            text="[선택] 가져올 컬럼을 선택하세요",
-            font=(get_system_font()[0], 12, "bold")
-        )
-        title_label.pack(pady=(0, 10))
+    def check_all(self):
+        self.list.check_all()
         
-        # Info label
-        info_label = ttk.Label(
-            main_frame,
-            text="검색창에 키워드를 입력하여 컬럼을 필터링할 수 있습니다",
-            foreground="gray"
-        )
-        info_label.pack(pady=(0, 5))
+    def uncheck_all(self):
+        self.list.uncheck_all()
         
-        # Column list with search (larger height for popup)
-        self.col_list = GridCheckList(main_frame, columns=4, height=300)
-        self.col_list.pack(fill="both", expand=True, pady=5)
-        
-        # Quick action buttons
-        quick_btns = ttk.Frame(main_frame)
-        quick_btns.pack(fill="x", pady=5)
-        
-        ttk.Button(
-            quick_btns, 
-            text="[V] 전체 선택", 
-            command=self.col_list.check_all
-        ).pack(side="left", fill="x", expand=True, padx=(0, 2))
-        
-        ttk.Button(
-            quick_btns, 
-            text="[X] 선택 해제", 
-            command=self.col_list.uncheck_all
-        ).pack(side="left", fill="x", expand=True, padx=(2, 0))
-        
-        # Bottom buttons
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill="x", pady=(10, 0))
-        
-        ttk.Button(
-            btn_frame,
-            text="취소",
-            command=self._cancel
-        ).pack(side="right", padx=(5, 0))
-        
-        ttk.Button(
-            btn_frame,
-            text="확인",
-            command=self._ok,
-            style="Accent.TButton"  # Highlighted button
-        ).pack(side="right")
-        
-        # Selected count label
-        self.count_label = ttk.Label(btn_frame, text="선택: 0개", foreground="blue")
-        self.count_label.pack(side="left")
-        
-        # Update count on checkbox changes
-        self._update_count()
-        
-        # Bind escape key to cancel
-        self.bind("<Escape>", lambda e: self._cancel())
-        
-        # Bind enter key to confirm
-        self.bind("<Return>", lambda e: self._ok())
-    
     def set_items(self, items):
-        """Set available columns"""
-        self.col_list.set_items(items)
-        # Restore previous selection
-        if self.current_selection:
-            self.col_list.set_checked_items(self.current_selection)
-        self._update_count()
-    
-    def _update_count(self):
-        """Update selected count label"""
-        try:
-            count = len(self.col_list.checked())
-            self.count_label.config(text=f"선택: {count}개")
-            # Schedule next update
-            self.after(500, self._update_count)
-        except:
-            pass  # Dialog might be destroyed
-    
-    def _ok(self):
-        """Confirm selection"""
-        self.result = self.col_list.checked()
-        self.destroy()
-    
-    def _cancel(self):
-        """Cancel selection"""
-        self.result = None
-        self.destroy()
-    
-    def show(self):
-        """Show dialog and return selected columns"""
-        self.wait_window()
-        return self.result
+        self.list.set_items(items)
+        
+    def get_selected(self):
+        return self.list.checked()
 
 
-
-# Determine base class for App
-if DRAG_DROP_AVAILABLE:
-    BaseApp = TkinterDnD.Tk
-else:
-    BaseApp = tk.Tk
 
 class App(BaseApp):
     def __init__(self, license_info=None):
@@ -785,62 +738,216 @@ class App(BaseApp):
         # Restore missing initializations
         default_base = "file" if sys.platform == "darwin" else "open"
         default_tgt = "file"
+        default_tgt = "file"
         self.base_mode = tk.StringVar(value=default_base)
         self.tgt_mode = tk.StringVar(value=default_tgt)
+        
+        # Output Path
+        # Output Path (Default to Downloads/ExcelMatcher_Results for visibility/permission)
+        default_out = os.path.join(os.path.expanduser("~"), "Downloads", "ExcelMatcher_Results")
+        if not os.path.exists(default_out):
+            try:
+                os.makedirs(default_out, exist_ok=True)
+            except:
+                pass # Will be created by matcher if possible
+        self.out_path = tk.StringVar(value=default_out)
 
-        self.presets: dict[str, list[str]] = {}
+        self.presets: dict[str, list[str]] = {}  # Target presets (legacy name kept for compatibility check, but we will use self.target_presets)
+        self.target_presets: dict[str, list[str]] = {}
+        self.base_presets: dict[str, list[str]] = {}
         self.opt_fuzzy = tk.BooleanVar(value=False)
         self.opt_color = tk.BooleanVar(value=True)
         self.replacer_win = None
 
         self.title(APP_TITLE)
-        self.geometry("1050x850")  # Further reduced to ensure bottom content is visible
+        self.geometry("1080x1080")
 
-
-        # --- HEADER SECTION ---
-        header = tk.Frame(self, bg="#2c3e50", height=90)  # Reduced from 110
-        header.pack(fill="x", side="top")
+        # --- HEADER SECTION (Redesigned for Commercial) ---
+        # Height 100 for dramatic effect with Glassmorphism
+        self.top_header = GradientFrame(self, color1="#2c3e50", color2="#1a252f", height=100) 
+        self.top_header.pack(fill="x", side="top")
         
-        # Left side: Logo + Title + Slogan
-        left_header = tk.Frame(header, bg="#2c3e50")
-        left_header.pack(side="left", padx=15, pady=8)  # Reduced padding
-        
-        # Logo icon (text-based to avoid emoji crash on macOS)
+        # Draw Content on Canvas for "Translucent" Text Effect
+        # 1. Logo Handling (Load Once)
+        self.logo_left_tk = None
+        self.logo_right_tk = None
         try:
-            logo_path = os.path.join(os.path.dirname(__file__), "assets", "logo.png")
+            if getattr(sys, 'frozen', False):
+                base_path = sys._MEIPASS
+            else:
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            logo_path = os.path.join(base_path, "assets", "logo.png")
             if os.path.exists(logo_path):
-                from PIL import Image, ImageTk
-                logo_img = Image.open(logo_path).resize((48, 48), Image.Resampling.LANCZOS)
-                logo_photo = ImageTk.PhotoImage(logo_img)
-                logo_label = tk.Label(left_header, image=logo_photo, bg="#2c3e50", cursor="hand2")
-                logo_label.image = logo_photo  # Keep reference
-                logo_label.pack(side="left", padx=(0, 15))
+                pil_img = Image.open(logo_path)
+                pil_img.thumbnail((300, 70), Image.Resampling.LANCZOS)
+                self.logo_tk = ImageTk.PhotoImage(pil_img)
                 
-                # Add subtle hover effect to logo
-                def on_logo_enter(e):
-                    logo_label.config(relief="raised", borderwidth=2)
-                def on_logo_leave(e):
-                    logo_label.config(relief="flat", borderwidth=0)
-                logo_label.bind("<Enter>", on_logo_enter)
-                logo_label.bind("<Leave>", on_logo_leave)
-                logo_label.bind("<Button-1>", lambda e: show_feature_info())
-        except:
-            # Fallback: Use text icon (NO EMOJI - causes crash on macOS)
-            logo_label = tk.Label(left_header, text="EM", font=(get_system_font()[0], 24, "bold"), 
-                                 bg="#27ae60", fg="white", padx=8, pady=4, relief="raised", borderwidth=2)
-            logo_label.pack(side="left", padx=(0, 15))
-        
-        # Title and slogan container
-        title_container = tk.Frame(left_header, bg="#2c3e50")
-        title_container.pack(side="left")
-        
-        lbl_title = tk.Label(title_container, text=APP_TITLE, font=(get_system_font()[0], 18, "bold"), bg="#2c3e50", fg="#ecf0f1")
-        lbl_title.pack(anchor="w")
-        
-        lbl_desc = tk.Label(title_container, text=APP_DESCRIPTION, font=(get_system_font()[0], 11), bg="#2c3e50", fg="#95a5a6", justify="left")
-        lbl_desc.pack(anchor="w", pady=(3, 0))
+                # Split logo for "Meeting" animation
+                w, h = pil_img.size
+                left_half = pil_img.crop((0, 0, w//2, h))
+                right_half = pil_img.crop((w//2, 0, w, h))
+                self.logo_left_tk = ImageTk.PhotoImage(left_half)
+                self.logo_right_tk = ImageTk.PhotoImage(right_half)
+        except Exception as ex:
+            print(f"Logo load error: {ex}")
+            self.logo_tk = None
 
-        # Feature Info Popup
+        # 2. Animation State
+        self.assembly_progress = 0.0
+        self.assembly_done = False
+        self.shine_pos = -200
+
+        def draw_header_content(event=None):
+            width = self.top_header.winfo_width()
+            height = self.top_header.winfo_height()
+            if width < 1 or height < 1: return
+
+            self.top_header.delete("content")
+            
+            y_center = height // 2
+            x = 30
+            
+            # 1. Logo Shine (Init - only if not exists)
+            if not self.top_header.find_withtag("logo_shine"):
+                self.top_header.create_line(
+                    -100, -100, -100, -100,
+                    fill="white", width=40, capstyle="round",
+                    tags=("content", "logo_shine"),
+                    stipple="gray50" if sys.platform != "darwin" else "" 
+                )
+
+            # 2. Assembly Animation (E/M Matching)
+            if self.logo_left_tk and self.logo_right_tk and not self.assembly_done:
+                dist = 100 * (1.0 - self.assembly_progress)
+                lw = self.logo_left_tk.width()
+                rw = self.logo_right_tk.width()
+                
+                # Draw halves
+                self.top_header.create_image(x - dist, y_center, image=self.logo_left_tk, anchor="w", tags="content")
+                self.top_header.create_image(x + lw + dist, y_center, image=self.logo_right_tk, anchor="w", tags="content")
+                
+                text_x = x + lw + rw + 15
+            elif self.logo_tk:
+                self.top_header.create_image(x, y_center, image=self.logo_tk, anchor="w", tags="content")
+                text_x = x + self.logo_tk.width() + 15
+            else:
+                text_x = x
+
+            # Title: "Easy Match"
+            font_title = (get_system_font()[0], 32, "bold")
+            self.top_header.create_text(text_x+2, y_center-2, text="Easy Match", font=font_title, fill="#1c2833", anchor="w", tags="content")
+            self.top_header.create_text(text_x, y_center-4, text="Easy Match", font=font_title, fill="white", anchor="w", tags="content")
+
+            # 3. Gear Icon (License/Admin) on Right (Expert Position)
+            gear_x = width - 95
+            self.top_header.create_text(gear_x, y_center, text="⚙️", font=(get_system_font()[0], 18), fill="white", tags=("content", "gear_btn"))
+            
+            # Hover/Click effect binding for Gear
+            self.top_header.tag_bind("gear_btn", "<Button-1>", lambda e: open_expert_menu(e))
+            self.top_header.tag_bind("gear_btn", "<Enter>", lambda e: self.top_header.config(cursor="hand2"))
+            self.top_header.tag_bind("gear_btn", "<Leave>", lambda e: self.top_header.config(cursor="arrow"))
+
+            # 4. Help Button (?) on Right
+            # Draw a circle
+            btn_x = width - 50
+            btn_r = 16
+            
+            # Circle
+            # Tag 'help_btn' for binding
+            self.top_header.create_oval(btn_x-btn_r, y_center-btn_r, btn_x+btn_r, y_center+btn_r, 
+                                        fill="#e67e22", outline="white", width=2, tags=("content", "help_btn"))
+            # Question Mark
+            self.top_header.create_text(btn_x, y_center, text="?", font=(get_system_font()[0], 18, "bold"), fill="white", tags=("content", "help_btn"))
+            
+            # Hover/Click effect binding
+            self.top_header.tag_bind("help_btn", "<Button-1>", lambda e: show_feature_info())
+            self.top_header.tag_bind("help_btn", "<Enter>", lambda e: self.top_header.config(cursor="hand2"))
+            self.top_header.tag_bind("help_btn", "<Leave>", lambda e: self.top_header.config(cursor="arrow"))
+
+            # Slogan Removed as requested
+
+        # Bind drawing to resize
+        self.top_header.bind("<Configure>", draw_header_content, add="+")
+        
+        # Start Assembly Animation (E/M Meeting)
+        def assembly_animation():
+            if not self.winfo_exists(): return
+            if self.assembly_done: return
+            
+            self.assembly_progress += 0.05
+            if self.assembly_progress >= 1.0:
+                self.assembly_progress = 1.0
+                self.assembly_done = True
+                # Start Shine Sweep after matching
+                self.after(500, shine_animation)
+            
+            draw_header_content()
+            if not self.assembly_done:
+                self.after(30, assembly_animation)
+
+        # Start Shine Sweep Animation (Modified to wait for assembly)
+        def shine_animation():
+            if not self.winfo_exists(): return
+            if not self.assembly_done: return # Wait for pieces to meet
+            
+            shine_item = self.top_header.find_withtag("logo_shine")
+            if not shine_item: return
+
+            # Advance position
+            self.shine_pos += 12
+            if self.shine_pos > 800: # Sweep across and wait
+                self.shine_pos = -200
+                self.after(4000, shine_animation) # Wait 4 seconds before next sweep
+                return
+
+            # Draw diagonal shine line
+            height = self.top_header.winfo_height()
+            self.top_header.coords(shine_item[0],
+                self.shine_pos, 0,
+                self.shine_pos + 60, height
+            )
+            
+            # Mask shine to only show over logo area (roughly x=30 to x=300)
+            if 0 < self.shine_pos < 500:
+                self.top_header.itemconfig(shine_item[0], state="normal")
+                self.top_header.tag_lower(shine_item[0], "content")
+            else:
+                self.top_header.itemconfig(shine_item[0], state="hidden")
+
+            self.after(20, shine_animation)
+
+        # Launch Assembly first
+        self.after(800, assembly_animation)
+
+
+        # License/Admin Menu for Expert Gear
+        def open_expert_menu(e):
+            menu = tk.Menu(self, tearoff=0)
+            
+            def open_admin():
+                from tkinter import simpledialog, messagebox
+                from commercial_config import ADMIN_PASSWORD
+                pw = simpledialog.askstring("관리자", "관리자 비밀번호:", show="*")
+                if pw != ADMIN_PASSWORD:
+                    messagebox.showerror("오류", "비밀번호가 올바르지 않습니다.")
+                    return
+                from ui import AdminPanel
+                AdminPanel(self)
+
+            menu.add_command(label="라이선스 등록 (제품 키 입력)", command=self.register_license)
+            menu.add_command(label="관리자 패널", command=open_admin)
+            menu.add_separator()
+            menu.add_command(
+                label=f"라이선스: {self.license_info.get('type','?')} / 만료: {self.license_info.get('expiry','?')}",
+                state="disabled",
+            )
+            try:
+                menu.tk_popup(e.x_root, e.y_root)
+            finally:
+                menu.grab_release()
+
+        # Feature Info Popup (Defined here to be accessible)
         def show_feature_info():
             top = tk.Toplevel(self)
             top.title("Easy Match란?")
@@ -857,165 +964,56 @@ class App(BaseApp):
             top.geometry(f"600x500+{x}+{y}")
 
             # Title
-            tk.Label(top, text="Easy Match란?", font=(get_system_font()[0], 20, "bold"), bg="white", fg="#2c3e50").pack(pady=(25, 20))
+            tk.Label(top, text="Easy Match란?", font=(get_system_font()[0], 20, "bold"), bg="white", fg="#2c3e50").pack(pady=(20, 15))
             
             # Content frame
             content = tk.Frame(top, bg="white")
-            content.pack(padx=30, fill="both", expand=True)
+            content.pack(padx=25, fill="both", expand=True)
             
             # Easy section
-            easy_frame = tk.Frame(content, bg="#e8f5e9", relief="solid", borderwidth=2, highlightbackground="#27ae60", highlightthickness=2)
-            easy_frame.pack(fill="x", pady=(0, 15))
+            easy_frame = tk.Frame(content, bg="#e8f5e9", relief="solid", borderwidth=1, highlightbackground="#27ae60", highlightthickness=1)
+            easy_frame.pack(fill="x", pady=(0, 12))
             
-            tk.Label(easy_frame, text="[Easy] 이지", font=(get_system_font()[0], 15, "bold"), bg="#e8f5e9", fg="#27ae60").pack(pady=(15, 8), anchor="w", padx=20)
+            tk.Label(easy_frame, text="[Easy] 이지", font=(get_system_font()[0], 14, "bold"), bg="#e8f5e9", fg="#27ae60").pack(pady=(10, 5), anchor="w", padx=15)
             tk.Label(easy_frame, text="복잡한 엑셀 수식이나 코딩 없이, 누구나 쉽고 간편하게 사용할 수 있습니다.", 
-                    font=(get_system_font()[0], 11), bg="#e8f5e9", fg="#2c3e50", anchor="w", wraplength=520, justify="left").pack(padx=20, pady=(0, 5), fill="x")
+                    font=(get_system_font()[0], 11), bg="#e8f5e9", fg="#2c3e50", anchor="w", wraplength=520, justify="left").pack(padx=15, pady=(0, 3), fill="x")
             tk.Label(easy_frame, text="• 숫자/문자 서식 자동 보정 기능 포함", 
-                    font=(get_system_font()[0], 10), bg="#e8f5e9", fg="#34495e", anchor="w").pack(padx=40, pady=2, fill="x")
+                    font=(get_system_font()[0], 10), bg="#e8f5e9", fg="#34495e", anchor="w").pack(padx=30, pady=1, fill="x")
             tk.Label(easy_frame, text="• 직관적인 UI로 클릭 몇 번이면 완료", 
-                    font=(get_system_font()[0], 10), bg="#e8f5e9", fg="#34495e", anchor="w").pack(padx=40, pady=(0, 15), fill="x")
+                    font=(get_system_font()[0], 10), bg="#e8f5e9", fg="#34495e", anchor="w").pack(padx=30, pady=(0, 10), fill="x")
             
             # Match section
-            match_frame = tk.Frame(content, bg="#e3f2fd", relief="solid", borderwidth=2, highlightbackground="#2B579A", highlightthickness=2)
-            match_frame.pack(fill="x", pady=(0, 15))
+            match_frame = tk.Frame(content, bg="#e3f2fd", relief="solid", borderwidth=1, highlightbackground="#2B579A", highlightthickness=1)
+            match_frame.pack(fill="x", pady=(0, 12))
             
-            tk.Label(match_frame, text="[Match] 매치", font=(get_system_font()[0], 15, "bold"), bg="#e3f2fd", fg="#2B579A").pack(pady=(15, 8), anchor="w", padx=20)
+            tk.Label(match_frame, text="[Match] 매치", font=(get_system_font()[0], 14, "bold"), bg="#e3f2fd", fg="#2B579A").pack(pady=(10, 5), anchor="w", padx=15)
             tk.Label(match_frame, text="엑셀(Excel)뿐만 아니라 CSV 파일까지 복잡한 설정 없이 쉽게 매칭해줍니다.", 
-                    font=(get_system_font()[0], 11), bg="#e3f2fd", fg="#2c3e50", anchor="w", wraplength=520, justify="left").pack(padx=20, pady=(0, 5), fill="x")
+                    font=(get_system_font()[0], 11), bg="#e3f2fd", fg="#2c3e50", anchor="w", wraplength=520, justify="left").pack(padx=15, pady=(0, 3), fill="x")
             tk.Label(match_frame, text="• 다양한 파일 형식 지원 (xlsx, xls, csv)", 
-                    font=(get_system_font()[0], 10), bg="#e3f2fd", fg="#34495e", anchor="w").pack(padx=40, pady=2, fill="x")
+                    font=(get_system_font()[0], 10), bg="#e3f2fd", fg="#34495e", anchor="w").pack(padx=30, pady=1, fill="x")
             tk.Label(match_frame, text="• 자동 데이터 타입 감지", 
-                    font=(get_system_font()[0], 10), bg="#e3f2fd", fg="#34495e", anchor="w").pack(padx=40, pady=(0, 15), fill="x")
+                    font=(get_system_font()[0], 10), bg="#e3f2fd", fg="#34495e", anchor="w").pack(padx=30, pady=(0, 10), fill="x")
             
             # Features section
-            features_frame = tk.Frame(content, bg="#fff3e0", relief="solid", borderwidth=2, highlightbackground="#f39c12", highlightthickness=2)
-            features_frame.pack(fill="x", pady=(0, 15))
+            features_frame = tk.Frame(content, bg="#fff3e0", relief="solid", borderwidth=1, highlightbackground="#f39c12", highlightthickness=1)
+            features_frame.pack(fill="x", pady=(0, 12))
             
-            tk.Label(features_frame, text="[주요 기능]", font=(get_system_font()[0], 15, "bold"), bg="#fff3e0", fg="#e67e22").pack(pady=(15, 8), anchor="w", padx=20)
+            tk.Label(features_frame, text="[주요 기능]", font=(get_system_font()[0], 14, "bold"), bg="#fff3e0", fg="#e67e22").pack(pady=(10, 5), anchor="w", padx=15)
             tk.Label(features_frame, text="• 자주 쓰는 컬럼 저장 기능", 
-                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=40, pady=2, fill="x")
-            tk.Label(features_frame, text="• 오타 자동 보정 (Fuzzy Match)", 
-                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=40, pady=2, fill="x")
-            tk.Label(features_frame, text="• 치환 설정으로 데이터 전처리", 
-                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=40, pady=2, fill="x")
-            tk.Label(features_frame, text="• 색상 강조로 매칭 결과 확인", 
-                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=40, pady=(0, 15), fill="x")
+                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=30, pady=1, fill="x")
+            # Combined shorter feature list
+            tk.Label(features_frame, text="• 오타 자동 보정 / 치환 설정 / 색상 강조", 
+                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=30, pady=(0, 10), fill="x")
             
-            # Close button
-            tk.Button(top, text="닫기", command=top.destroy, bg="#95a5a6", fg="white", 
-                     font=(get_system_font()[0], 11, "bold"), padx=25, pady=8, cursor="hand2").pack(pady=(0, 20))
-
-        # Right side: Buttons
-        right_header = tk.Frame(header, bg="#2c3e50")
-        right_header.pack(side="right", padx=20, pady=15)
-        
-        # Feature Info Button
-        btn_feature_info = tk.Label(
-            right_header,
-            text="[i] 기능 자세히 보기",
-            font=(get_system_font()[0], 10, "bold"),
-            bg="#3498db",
-            fg="white",
-            padx=12,
-            pady=6,
-            cursor="hand2",
-            relief="raised"
-        )
-        btn_feature_info.pack(side="left", padx=(0, 10))
-        btn_feature_info.bind("<Button-1>", lambda e: show_feature_info())
-        
-        # Smooth hover effect with animation
-        def on_enter_info(e):
-            btn_feature_info.config(bg="#2980b9", relief="sunken")
-        def on_leave_info(e):
-            btn_feature_info.config(bg="#3498db", relief="raised")
-        btn_feature_info.bind("<Enter>", on_enter_info)
-        btn_feature_info.bind("<Leave>", on_leave_info)
-        
-        # User Guide Button
-        btn_guide = tk.Label(
-            right_header,
-            text="사용방법 (Guide)",
-            font=(get_system_font()[0], 10, "bold"),
-            bg="#16a085",
-            fg="white",
-            padx=12,
-            pady=6,
-            cursor="hand2",
-            relief="raised"
-        )
-        btn_guide.pack(side="left", padx=(0, 10))
-        
-        # Guide button click handler
-        def open_usage_guide_click(e=None):
-            import webbrowser
-            import os
-            try:
-                guide_path = os.path.abspath("usage_guide.html")
-                webbrowser.open(f"file://{guide_path}")
-            except Exception as ex:
-                messagebox.showinfo("안내", "사용 가이드 파일을 찾을 수 없습니다.")
-        
-        btn_guide.bind("<Button-1>", open_usage_guide_click)
-        
-        # Smooth hover effect for guide button
-        def on_enter_guide(e):
-            btn_guide.config(bg="#138d75", relief="sunken")
-        def on_leave_guide(e):
-            btn_guide.config(bg="#16a085", relief="raised")
-        btn_guide.bind("<Enter>", on_enter_guide)
-        btn_guide.bind("<Leave>", on_leave_guide)
-        
-        # License Button
-        btn_license = tk.Label(
-            right_header,
-            text="라이선스/관리",
-            font=(get_system_font()[0], 10, "bold"),
-            bg="#7f8c8d",
-            fg="white",
-            padx=12,
-            pady=6,
-            cursor="hand2",
-            relief="raised"
-        )
-        btn_license.pack(side="left")
-
-        def open_license_menu(e=None):
-            # Create a popup menu
-            menu = tk.Menu(self, tearoff=0)
+            # Close button (Label to ensure color works on Mac)
+            btn_close = tk.Label(top, text="닫기", bg="#95a5a6", fg="white", 
+                      font=(get_system_font()[0], 11, "bold"), padx=25, pady=8, cursor="hand2", relief="raised")
+            btn_close.pack(pady=(0, 10))
+            btn_close.bind("<Button-1>", lambda e: top.destroy())
             
-            def open_admin():
-                pw = simpledialog.askstring("관리자", "관리자 비밀번호:", show="*")
-                if pw != ADMIN_PASSWORD:
-                    messagebox.showerror("오류", "비밀번호가 올바르지 않습니다.")
-                    return
-                AdminPanel(self)
-
-            menu.add_command(label="라이선스 등록 (제품 키 입력)", command=self.register_license)
-            menu.add_command(label="관리자 패널", command=open_admin)
-            menu.add_separator()
-            menu.add_command(
-                label=f"라이선스: {self.license_info.get('type','?')} / 만료: {self.license_info.get('expiry','?')}",
-                state="disabled",
-            )
-            
-            try:
-                # Show menu at button position
-                x = btn_license.winfo_rootx()
-                y = btn_license.winfo_rooty() + btn_license.winfo_height()
-                menu.tk_popup(x, y)
-            finally:
-                menu.grab_release()
-        
-        btn_license.bind("<Button-1>", open_license_menu)
-        
-        # Smooth hover effect for license button
-        def on_enter_license(e):
-            btn_license.config(bg="#5d6d6e", relief="sunken")
-        def on_leave_license(e):
-            btn_license.config(bg="#7f8c8d", relief="raised")
-        btn_license.bind("<Enter>", on_enter_license)
-        btn_license.bind("<Leave>", on_leave_license)
+            # Hover effect for close button
+            btn_close.bind("<Enter>", lambda e: btn_close.config(bg="#7f8c8d", relief="sunken"))
+            btn_close.bind("<Leave>", lambda e: btn_close.config(bg="#95a5a6", relief="raised"))
 
 
         self._init_ui()
@@ -1079,40 +1077,6 @@ class App(BaseApp):
         self.diag_txt = tk.Text(diag_frame, height=2, state="disabled", bg="#f9f9f9", fg="#555555")  # Reduced to 2
         self.diag_txt.pack(side="bottom", fill="x")
 
-        # Log text area (always visible) - reduced height
-        self.log_txt = tk.Text(footer, height=2, state="disabled", bg="#f0f0f0")  # Reduced to 2
-        self.log_txt.pack(side="bottom", fill="x")
-
-
-        # Run button with simple flat blue styling
-        run_btn = tk.Button(
-            footer, 
-            text="매칭 실행 (RUN)", 
-            command=self.run,
-            bg="#1e3a8a",  # Deep blue background
-            fg="#ffffff",  # Bright white text
-            font=(get_system_font()[0], 14, "bold"),  # Increased font size for better readability
-            padx=20,
-            pady=15,
-            cursor="hand2",
-            relief="flat",
-            borderwidth=0,
-            activebackground="#1e40af",  # Slightly lighter blue when clicked
-            activeforeground="#ffffff"
-        )
-        run_btn.pack(side="bottom", fill="x", pady=10)
-        ToolTip(run_btn, "설정한 조건으로 데이터 매칭을 시작합니다\n(단축키: Ctrl+M)")
-        
-        # Hover effect for run button
-        def on_run_enter(e):
-            run_btn.config(bg="#d35400", relief="sunken")
-        
-        def on_run_leave(e):
-            run_btn.config(bg="#e67e22", relief="raised")
-        
-        run_btn.bind("<Enter>", on_run_enter)
-        run_btn.bind("<Leave>", on_run_leave)
-
         # Collapsible Advanced Settings
         opt_container = ttk.Frame(footer)
         opt_container.pack(side="bottom", fill="x", pady=(10, 0))
@@ -1150,85 +1114,133 @@ class App(BaseApp):
         color_check.pack(side="left")
         ToolTip(color_check, "매칭된 행에 색상을 추가하여 결과를 쉽게 확인할 수 있습니다")
 
-        # --- 2. Header Content (Top) ---
-        # Pack top content with side="top"
+        # Log text area (always visible) - reduced height
+        self.log_txt = tk.Text(footer, height=2, state="disabled", bg="#f0f0f0")  # Reduced to 2
+        self.log_txt.pack(side="bottom", fill="x")
+
+
+        # Output Path Selection
+        out_frame = ttk.Frame(footer)
+        out_frame.pack(side="bottom", fill="x", pady=(5, 10))
+        
+        ttk.Label(out_frame, text="결과 저장 위치:", font=(get_system_font()[0], 10, "bold")).pack(side="left")
+        ttk.Entry(out_frame, textvariable=self.out_path, state="readonly").pack(side="left", fill="x", expand=True, padx=5)
+        
+        def pick_out_dir():
+            d = filedialog.askdirectory()
+            if d: self.out_path.set(d)
+            
+        ttk.Button(out_frame, text="폴더 변경", command=pick_out_dir).pack(side="left")
+
+        # Run button with Green styling (Matching Usage Guide)
+        # Run button with Green styling (Matching Usage Guide) - Using Label for macOS color support
+        run_btn = tk.Label(
+            footer, 
+            text="매칭 실행 (RUN)", 
+            bg="#16a085",  # Green/Teal
+            fg="#ffffff",  # White
+            font=(get_system_font()[0], 15, "bold"),
+            padx=20,
+            pady=15,
+            cursor="hand2",
+            relief="raised",
+            borderwidth=2
+        )
+        # Use simple Button binding instead of Label if possible, but keep Label for color
+        # Re-verify Run button to ensure it uses Label as previously fixed.
+        # Wait, step 3024 replaced Inquiry button to Label, but did not touch Run button (except maybe context).
+        # Run button was already Label in Step 2981.
+        # I just need to make sure I don't break anything.
+        # This chunk is just context, no replacement needed here.
+        # But I will confirm Run Button is distinct from preset logic.
+        pass
+
+        run_btn.pack(side="bottom", fill="x", pady=(10, 5))
+        ToolTip(run_btn, "설정한 조건으로 데이터 매칭을 시작합니다\n(단축키: Ctrl+M)\n결과는 설정된 저장 위치에 생성됩니다")
+        
+        # Hover effect for run button
+        def on_run_enter(e):
+            run_btn.config(bg="#1abc9c", relief="sunken") # Lighter green
+        
+        def on_run_leave(e):
+            run_btn.config(bg="#16a085", relief="raised")
+            
+        def on_run_click(e):
+            self.run()
+        
+        run_btn.bind("<Enter>", on_run_enter)
+        run_btn.bind("<Leave>", on_run_leave)
+        run_btn.bind("<Button-1>", on_run_click)
+
+
+        # --- 2. File Loaders (Top - Split Layout) ---
         top_content = ttk.Frame(main)
-        top_content.pack(side="top", fill="x")
+        top_content.pack(side="top", fill="x", pady=(0, 10))
 
-        self.base_ui = SourceFrame(top_content, "1. 기준 데이터 (Key 보유)", self.base_mode, is_base=True)
-        self.base_ui.pack(fill="x", pady=(0, 15))
+        # Split Container for Files
+        split_frame = ttk.Frame(top_content)
+        split_frame.pack(fill="x", expand=True)
 
-        self.tgt_ui = SourceFrame(top_content, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode)
-        self.tgt_ui.pack(fill="x", pady=(0, 15))
+        # Left: Source Loader
+        self.src_loader = FileLoaderFrame(split_frame, "1. 기준 데이터 (Key 보유)", self.base_mode, on_change=self._load_base_cols)
+        self.src_loader.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        self.base_ui.on_change = self._load_base_cols
-        self.tgt_ui.on_change = self._load_tgt_cols
+        # Right: Target Loader
+        self.tgt_loader = FileLoaderFrame(split_frame, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode, on_change=self._load_tgt_cols)
+        self.tgt_loader.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
-        preset_frame = ttk.Frame(top_content)
-        preset_frame.pack(fill="x", pady=(5, 5))
+        # --- 3. Column Selectors (Middle - Split Layout) ---
+        col_content = ttk.Frame(main)
+        col_content.pack(side="top", fill="both", expand=True, pady=0)
+
+        # Left Container (Base Data)
+        left_panel = ttk.Frame(col_content)
+        left_panel.pack(side="left", fill="both", expand=True, padx=(0, 5))
+
+        # Base Presets Bar
+        base_preset_frame = ttk.Frame(left_panel)
+        base_preset_frame.pack(side="top", fill="x", pady=(0, 5))
+        
+        ttk.Label(base_preset_frame, text="자주 쓰는 컬럼:", font=get_system_font()).pack(side="left")
+
+        self.cb_preset_base = ttk.Combobox(base_preset_frame, state="readonly", width=15)
+        self.cb_preset_base.pack(side="left", padx=5)
+        self.cb_preset_base.bind("<<ComboboxSelected>>", self.apply_base_preset)
+        ToolTip(self.cb_preset_base, "저장된 기준 키 설정을 불러옵니다")
+        
+        ttk.Button(base_preset_frame, text="저장", command=self.save_base_preset, width=4).pack(side="left", padx=2)
+        ttk.Button(base_preset_frame, text="삭제", command=self.delete_base_preset, width=4).pack(side="left", padx=2)
+        
+        # Save Conditions to Excel Button
+        btn_save_sheet = ttk.Button(base_preset_frame, text="설정파일 저장", command=self.save_conditions_to_sheet, width=10)
+        btn_save_sheet.pack(side="right", padx=2)
+        ToolTip(btn_save_sheet, "현재 설정된 조건(키, 대상 컬럼)을 기준 데이터 파일에 새로운 시트로 저장합니다")
+
+        # Left: Match Key Selector
+        self.match_key_selector = ColumnSelectorFrame(left_panel, "매칭 키 (Key) 선택 - 기준 데이터")
+        self.match_key_selector.pack(side="bottom", fill="both", expand=True)
+
+        # Right Container (Presets + Target Columns)
+        right_panel = ttk.Frame(col_content)
+        right_panel.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        # Presets Bar (Moved here)
+        preset_frame = ttk.Frame(right_panel)
+        preset_frame.pack(side="top", fill="x", pady=(0, 5))
+        
         ttk.Label(preset_frame, text="자주 쓰는 컬럼:", font=get_system_font()).pack(side="left")
 
-        self.cb_preset = ttk.Combobox(preset_frame, state="readonly", width=25)
+        self.cb_preset = ttk.Combobox(preset_frame, state="readonly", width=18)
         self.cb_preset.pack(side="left", padx=5)
         self.cb_preset.bind("<<ComboboxSelected>>", self.apply_preset)
-        ToolTip(self.cb_preset, "저장된 컬럼 설정을 불러옵니다\n자주 사용하는 매칭 조합을 빠르게 적용할 수 있습니다")
+        ToolTip(self.cb_preset, "저장된 컬럼 설정을 불러옵니다")
         
-        save_preset_btn = ttk.Button(preset_frame, text="선택 저장 (Save)", command=self.save_preset)
-        save_preset_btn.pack(side="left", padx=2)
-        ToolTip(save_preset_btn, "현재 선택한 컬럼 조합을 저장합니다\n다음에 빠르게 불러올 수 있습니다")
-        
-        del_preset_btn = ttk.Button(preset_frame, text="삭제 (Del)", command=self.delete_preset)
-        del_preset_btn.pack(side="left", padx=2)
-        ToolTip(del_preset_btn, "선택한 프리셋을 삭제합니다")
+        ttk.Button(preset_frame, text="저장", command=self.save_preset, width=5).pack(side="left", padx=2)
+        ttk.Button(preset_frame, text="삭제", command=self.delete_preset, width=5).pack(side="left", padx=2)
 
-        # --- 3. Middle Content (Column Selection) ---
-        mid_content = ttk.Frame(main)
-        mid_content.pack(side="top", fill="x", pady=10)
-
-        # Column selection button and info
-        col_frame = ttk.LabelFrame(mid_content, text="가져올 컬럼 선택", padding=10)
-        col_frame.pack(fill="x")
-        
-        # Info label
-        self.col_info_label = ttk.Label(
-            col_frame,
-            text="컬럼을 선택하려면 아래 버튼을 클릭하세요",
-            foreground="gray"
-        )
-        self.col_info_label.pack(pady=(0, 10))
-        
-        # Open dialog button
-        btn_frame = ttk.Frame(col_frame)
-        btn_frame.pack(fill="x")
-        
-        self.btn_select_cols = ttk.Button(
-            btn_frame,
-            text="[선택] 컬럼 선택 (Select Columns)",
-            command=self._open_column_selector,
-            style="Accent.TButton"
-        )
-        self.btn_select_cols.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        
-        # Quick select all button
-        ttk.Button(
-            btn_frame,
-            text="[V] 전체 선택",
-            command=self._select_all_columns
-        ).pack(side="left", padx=(0, 5))
-        
-        # Clear selection button
-        ttk.Button(
-            btn_frame,
-            text="[X] 선택 해제",
-            command=self._clear_column_selection
-        ).pack(side="left")
-        
-        # Store selected columns
-        self.selected_columns = []
-        
-        # Hidden GridCheckList for compatibility (will be populated but not shown)
-        self.col_list = GridCheckList(mid_content, height=0)
-        # Don't pack it - it's hidden
+        # Right: Target Column Selector
+        self.target_col_selector = ColumnSelectorFrame(right_panel, "가져올 컬럼 선택 - 대상 데이터")
+        self.target_col_selector.pack(side="bottom", fill="both", expand=True)
         
         # Force menu update
         def force_menu():
@@ -1246,28 +1258,29 @@ class App(BaseApp):
         c_footer.pack(side="bottom", fill="x", pady=0)
         c_footer.config(height=60)
         
-        # Left: Creator name
+        # Left: Creator name (Updated for Commercial Release)
         tk.Label(
             c_footer,
-            text=f"Made by {CREATOR_NAME}",
+            text=f"이지매치 (EasyMatch)\nDeveloped by {CREATOR_NAME}",
             bg="#2c3e50",
-            fg="#95a5a6",
-            font=(get_system_font()[0], 10)
-        ).pack(side="left", padx=20, pady=15)
+            fg="#bdc3c7",  # Slightly brighter than #95a5a6 for readability
+            font=(get_system_font()[0], 10),
+            justify="left"
+        ).pack(side="left", padx=20, pady=10)
         
         # Comprehensive inquiry popup
         def show_inquiry_popup(e=None):
             top = tk.Toplevel(self)
             top.title("문의")
-            top.geometry("450x600")
+            top.geometry("450x520")
             top.configure(bg="white")
             top.resizable(False, False)
             
             # Center
             top.update_idletasks()
             x = (top.winfo_screenwidth() // 2) - 225
-            y = (top.winfo_screenheight() // 2) - 300
-            top.geometry(f"450x600+{x}+{y}")
+            y = (top.winfo_screenheight() // 2) - 260
+            top.geometry(f"450x520+{x}+{y}")
             
             # Main container
             container = tk.Frame(top, bg="white")
@@ -1294,7 +1307,7 @@ class App(BaseApp):
             payment_frame = tk.Frame(container, bg="#e8f5e9", relief="solid", borderwidth=1)
             payment_frame.pack(fill="x", pady=(0, 12))
             
-            tk.Label(payment_frame, text="▶ 후원 계좌", font=(get_system_font()[0], 12, "bold"), bg="#e8f5e9", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
+            tk.Label(payment_frame, text="▶ 입금(후원) 계좌", font=(get_system_font()[0], 12, "bold"), bg="#e8f5e9", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
             tk.Label(payment_frame, text="대구은행 508-14-202118-7 (이현주)", font=(get_system_font()[0], 10, "bold"), bg="#e8f5e9", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=2)
             
             def copy_account():
@@ -1303,7 +1316,15 @@ class App(BaseApp):
                 top.update()
                 messagebox.showinfo("완료", "계좌번호가 복사되었습니다!", parent=top)
             
-            tk.Button(payment_frame, text="계좌번호 복사", command=copy_account, bg="#1e3a8a", fg="#ffffff", font=(get_system_font()[0], 9, "bold"), padx=12, pady=4, cursor="hand2", relief="raised", borderwidth=2, activebackground="#1e40af", activeforeground="#ffffff").pack(anchor="w", padx=15, pady=(4, 10))
+            # Copy Button (Label for macOS color support)
+            btn_copy_acc = tk.Label(payment_frame, text="계좌번호 복사", bg="#7f8c8d", fg="white", 
+                         font=(get_system_font()[0], 9, "bold"), padx=12, pady=4, cursor="hand2", relief="raised")
+            btn_copy_acc.pack(anchor="w", padx=15, pady=(4, 10))
+            btn_copy_acc.bind("<Button-1>", lambda e: copy_account())
+            # Hover
+            btn_copy_acc.bind("<Enter>", lambda e: btn_copy_acc.config(bg="#5d6d6e", relief="sunken"))
+            btn_copy_acc.bind("<Leave>", lambda e: btn_copy_acc.config(bg="#7f8c8d", relief="raised"))
+
             
             # Section 3: Customization Contact
             contact_frame = tk.Frame(container, bg="#fff3e0", relief="solid", borderwidth=1)
@@ -1318,16 +1339,30 @@ class App(BaseApp):
                 top.update()
                 messagebox.showinfo("완료", "이메일 주소가 복사되었습니다!", parent=top)
             
-            tk.Button(contact_frame, text="이메일 복사", command=copy_email, bg="#1e3a8a", fg="#ffffff", font=(get_system_font()[0], 9, "bold"), padx=12, pady=4, cursor="hand2", relief="raised", borderwidth=2, activebackground="#1e40af", activeforeground="#ffffff").pack(anchor="w", padx=15, pady=(4, 10))
+            # Copy Email Button (Label for macOS)
+            btn_copy_email = tk.Label(contact_frame, text="이메일 복사", bg="#7f8c8d", fg="white", 
+                           font=(get_system_font()[0], 9, "bold"), padx=12, pady=4, cursor="hand2", relief="raised")
+            btn_copy_email.pack(anchor="w", padx=15, pady=(4, 10))
+            btn_copy_email.bind("<Button-1>", lambda e: copy_email())
+            # Hover
+            btn_copy_email.bind("<Enter>", lambda e: btn_copy_email.config(bg="#5d6d6e", relief="sunken"))
+            btn_copy_email.bind("<Leave>", lambda e: btn_copy_email.config(bg="#7f8c8d", relief="raised"))
+
             
-            # Close button (centered, larger)
-            tk.Button(container, text="닫기", command=top.destroy, bg="#95a5a6", fg="white", font=(get_system_font()[0], 11, "bold"), padx=30, pady=8, cursor="hand2", relief="raised", borderwidth=1).pack(pady=(10, 0), anchor="center")
+            # Close button (centered, larger) - Label for macOS
+            btn_close_popup = tk.Label(container, text="닫기", bg="#95a5a6", fg="white", 
+                            font=(get_system_font()[0], 11, "bold"), padx=30, pady=8, cursor="hand2", relief="raised")
+            btn_close_popup.pack(pady=(10, 0), anchor="center")
+            btn_close_popup.bind("<Button-1>", lambda e: top.destroy())
+            # Hover
+            btn_close_popup.bind("<Enter>", lambda e: btn_close_popup.config(bg="#7f8c8d", relief="sunken"))
+            btn_close_popup.bind("<Leave>", lambda e: btn_close_popup.config(bg="#95a5a6", relief="raised"))
+
         
-        # Right: Inquiry button
-        inquiry_btn = tk.Button(
+        # Right: Inquiry button (Footer) - Label for macOS color support
+        inquiry_btn = tk.Label(
             c_footer,
             text="문의",
-            command=show_inquiry_popup,
             bg="#3498db",
             fg="white",
             font=(get_system_font()[0], 11, "bold"),
@@ -1338,6 +1373,7 @@ class App(BaseApp):
             borderwidth=2
         )
         inquiry_btn.pack(side="right", padx=20, pady=10)
+        inquiry_btn.bind("<Button-1>", show_inquiry_popup)
         
         def on_enter_inquiry(e):
             inquiry_btn.config(bg="#2980b9", relief="sunken")
@@ -1346,6 +1382,46 @@ class App(BaseApp):
         
         inquiry_btn.bind("<Enter>", on_enter_inquiry)
         inquiry_btn.bind("<Leave>", on_leave_inquiry)
+
+        # --- Guide Button (Next to Inquiry) ---
+        def open_usage_guide_click(e=None):
+            import webbrowser
+            try:
+                # Handle path for frozen app (PyInstaller)
+                if getattr(sys, 'frozen', False):
+                    base_path = sys._MEIPASS
+                else:
+                    base_path = os.path.dirname(os.path.abspath(__file__))
+                
+                guide_path = os.path.join(base_path, "usage_guide.html")
+                
+                if not os.path.exists(guide_path):
+                     guide_path = os.path.abspath("usage_guide.html")
+
+                webbrowser.open(f"file://{guide_path}")
+            except Exception as ex:
+                messagebox.showinfo("안내", f"사용 가이드 (usage_guide.html) 파일을 찾을 수 없습니다.\n{ex}")
+
+        guide_btn = tk.Label(
+            c_footer,
+            text="사용방법",
+            bg="#16a085",
+            fg="white",
+            font=(get_system_font()[0], 11, "bold"),
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            relief="raised",
+            borderwidth=2
+        )
+        guide_btn.pack(side="right", padx=(0, 0), pady=10)
+        guide_btn.bind("<Button-1>", open_usage_guide_click)
+        
+        def on_enter_guide(e): guide_btn.config(bg="#138d75", relief="sunken")
+        def on_leave_guide(e): guide_btn.config(bg="#16a085", relief="raised")
+        guide_btn.bind("<Enter>", on_enter_guide)
+        guide_btn.bind("<Leave>", on_leave_guide)
+
         
         # Pack main frame AFTER footer
         main.pack(fill="both", expand=True)
@@ -1369,9 +1445,13 @@ class App(BaseApp):
 
     def register_license(self):
         from license_manager import validate_key, save_license_key
+        from security_utils import get_hwid
         
         # 1. Input Key
-        key = simpledialog.askstring("라이선스 등록", "제품 키를 입력하세요:\n(예: EM-XXXX-XXXX...)", parent=self)
+        hwid = get_hwid()
+        key = simpledialog.askstring("라이선스 등록", 
+            f"제품 키를 입력하세요:\n(현재 기기 ID: {hwid})\n\n키 형식: EM-XXXX-XXXX...", 
+            parent=self)
         if not key:
             return
             
@@ -1408,31 +1488,50 @@ class App(BaseApp):
         try:
             if os.path.exists(PRESET_FILE):
                 with open(PRESET_FILE, "r", encoding="utf-8") as f:
-                    self.presets = json.load(f) or {}
+                    data = json.load(f) or {}
+                    
+                    # Check structure (Legacy vs New)
+                    if "base" in data or "target" in data:
+                        self.base_presets = data.get("base", {}) or {}
+                        self.target_presets = data.get("target", {}) or {}
+                    else:
+                        # Legacy format (flat dict -> target presets)
+                        self.base_presets = {}
+                        self.target_presets = data
             else:
-                self.presets = {}
+                self.base_presets = {}
+                self.target_presets = {}
         except Exception:
-            self.presets = {}
+            self.base_presets = {}
+            self.target_presets = {}
 
-        self.cb_preset["values"] = list(self.presets.keys())
-        self.cb_preset.set("설정을 선택하세요" if self.presets else "저장된 설정 없음")
+        # Update Target CB
+        self.cb_preset["values"] = list(self.target_presets.keys())
+        self.cb_preset.set("설정을 선택하세요" if self.target_presets else "저장된 설정 없음")
+        
+        # Update Base CB
+        self.cb_preset_base["values"] = list(self.base_presets.keys())
+        self.cb_preset_base.set("설정을 선택하세요" if self.base_presets else "저장된 설정 없음")
 
     def _save_presets(self):
         with open(PRESET_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.presets, f, ensure_ascii=False, indent=4)
+            data = {
+                "base": self.base_presets,
+                "target": self.target_presets
+            }
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
+    # --- Target Presets ---
     def save_preset(self):
-        checked = self.col_list.checked()
-        if not checked:
-            messagebox.showwarning("경고", "저장할 컬럼을 하나 이상 체크해주세요.")
+        items = self.target_col_selector.get_selected()
+        if not items:
+            messagebox.showwarning("경고", "저장할 컬럼을 하나 이상 선택하세요.")
             return
         name = simpledialog.askstring("설정 저장", "이 설정의 이름을 입력하세요:\n(예: 급여대장용)")
-        if not name:
-            return
+        if not name: return
         name = name.strip()
-        if not name:
-            return
-        self.presets[name] = checked
+        if not name: return
+        self.target_presets[name] = items
         self._save_presets()
         self.load_presets()
         self.cb_preset.set(name)
@@ -1440,151 +1539,180 @@ class App(BaseApp):
 
     def delete_preset(self):
         name = self.cb_preset.get()
-        if name in self.presets and messagebox.askyesno("삭제 확인", f"정말 [{name}] 설정을 삭제하시겠습니까?"):
-            del self.presets[name]
+        if name in self.target_presets and messagebox.askyesno("삭제 확인", f"정말 [{name}] 설정을 삭제하시겠습니까?"):
+            del self.target_presets[name]
             self._save_presets()
             self.load_presets()
+            self.cb_preset.set("")
 
     def apply_preset(self, event=None):
         name = self.cb_preset.get()
-        if name in self.presets:
-            # Apply to hidden col_list for compatibility
-            cnt = self.col_list.set_checked_items(self.presets[name])
-            # Also update selected_columns
-            self.selected_columns = self.presets[name].copy()
-            self._update_column_info()
-            self._log(f"프리셋 [{name}] 적용됨 ({cnt}개 항목 선택)")
-    
-    def _open_column_selector(self):
-        """Open popup dialog for column selection"""
-        # Get available columns from target data
-        cfg = self.tgt_ui.get_config()
-        if not cfg.get("sheet"):
-            messagebox.showwarning("경고", "먼저 대상 데이터를 선택하세요.")
-            return
-        
-        # Load columns
-        try:
-            if cfg["type"] == "file":
-                if not cfg["path"] or not os.path.exists(cfg["path"]):
-                    messagebox.showwarning("경고", "대상 파일을 찾을 수 없습니다.")
-                    return
-                cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
-            else:
-                cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-            
-            if not cols:
-                messagebox.showwarning("경고", "대상 데이터에서 컬럼을 찾을 수 없습니다.")
-                return
-            
-            # Open dialog
-            dialog = ColumnSelectorDialog(
-                self, 
-                title="가져올 컬럼 선택",
-                current_selection=self.selected_columns
-            )
-            dialog.set_items(cols)
-            result = dialog.show()
-            
-            if result is not None:  # User clicked OK
-                self.selected_columns = result
-                # Update hidden col_list for compatibility
-                self.col_list.set_items(cols)
-                self.col_list.set_checked_items(result)
-                self._update_column_info()
-                self._log(f"컬럼 선택 완료: {len(result)}개 선택됨")
-        
-        except Exception as e:
-            messagebox.showerror("오류", f"컬럼 로드 실패:\n{e}")
-            self._log(f"컬럼 로드 오류: {e}")
-    
-    def _select_all_columns(self):
-        """Select all available columns"""
-        cfg = self.tgt_ui.get_config()
-        if not cfg.get("sheet"):
-            messagebox.showwarning("경고", "먼저 대상 데이터를 선택하세요.")
-            return
-        
-        try:
-            if cfg["type"] == "file":
-                if not cfg["path"] or not os.path.exists(cfg["path"]):
-                    return
-                cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
-            else:
-                cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-            
-            if cols:
-                self.selected_columns = list(cols)
-                self.col_list.set_items(cols)
-                self.col_list.check_all()
-                self._update_column_info()
-                self._log(f"전체 선택: {len(cols)}개 컬럼")
-        except Exception as e:
-            self._log(f"전체 선택 오류: {e}")
-    
-    def _clear_column_selection(self):
-        """Clear all column selections"""
-        self.selected_columns = []
-        self.col_list.uncheck_all()
-        self._update_column_info()
-        self._log("컬럼 선택 해제됨")
-    
-    def _update_column_info(self):
-        """Update column selection info label"""
-        count = len(self.selected_columns)
-        if count == 0:
-            self.col_info_label.config(
-                text="컬럼을 선택하려면 아래 버튼을 클릭하세요",
-                foreground="gray"
-            )
-        else:
-            # Show first few column names
-            preview = ", ".join(self.selected_columns[:3])
-            if count > 3:
-                preview += f" 외 {count - 3}개"
-            self.col_info_label.config(
-                text=f"[V] {count}개 선택됨: {preview}",
-                foreground="green"
-            )
+        if name in self.target_presets:
+            items = self.target_presets[name]
+            cnt = self.target_col_selector.list.set_checked_items(items)
+            self._log(f"대상 프리셋 [{name}] 적용됨 ({cnt}개 항목 선택)")
 
+    # --- Base Presets ---
+    def save_base_preset(self):
+        items = self.match_key_selector.get_selected()
+        if not items:
+            messagebox.showwarning("경고", "저장할 키 컬럼을 하나 이상 선택하세요.")
+            return
+        name = simpledialog.askstring("키 설정 저장", "이 키 설정의 이름을 입력하세요:\n(예: 주민번호기준)")
+        if not name: return
+        name = name.strip()
+        if not name: return
+        self.base_presets[name] = items
+        self._save_presets()
+        self.load_presets()
+        self.cb_preset_base.set(name)
+        messagebox.showinfo("저장 완료", f"[{name}] 키 설정이 저장되었습니다.")
+
+    def delete_base_preset(self):
+        name = self.cb_preset_base.get()
+        if name in self.base_presets and messagebox.askyesno("삭제 확인", f"정말 [{name}] 키 설정을 삭제하시겠습니까?"):
+            del self.base_presets[name]
+            self._save_presets()
+            self.load_presets()
+            self.cb_preset_base.set("")
+
+    def apply_base_preset(self, event=None):
+        name = self.cb_preset_base.get()
+        if name in self.base_presets:
+            items = self.base_presets[name]
+            cnt = self.match_key_selector.list.set_checked_items(items)
+            self._log(f"기준 프리셋 [{name}] 적용됨 ({cnt}개 항목 선택)")
+            
+    # --- Save Conditions to Excel ---
+    def save_conditions_to_sheet(self):
+        """Save current selection (keys, targets) to a new sheet in Base Data file"""
+        b_cfg = self.src_loader.get_config()
+        if not b_cfg["path"] and not b_cfg["book"]:
+            messagebox.showwarning("경고", "기준 데이터가 로드되지 않았습니다.")
+            return
+
+        keys = self.match_key_selector.get_selected()
+        targets = self.target_col_selector.get_selected()
+        
+        if not keys and not targets:
+            messagebox.showwarning("경고", "저장할 설정(키 또는 대상 컬럼)이 없습니다.")
+            return
+            
+        try:
+            from openpyxl import load_workbook, Workbook
+            import pandas as pd
+            import datetime
+            
+            # Prepare data
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            data_row = [
+                timestamp,
+                ",".join(keys),
+                ",".join(targets),
+                str(self.opt_fuzzy.get()),
+                str(self.opt_color.get())
+            ]
+            header = ["Timestamp", "Match Keys", "Target Columns", "Fuzzy Option", "Color Option"]
+            sheet_name = "EasyMatch_Conditions"
+
+            # Function to append data using pandas for simplicity if possible, or openpyxl
+            # Since we want to append to existing file or create new sheet.
+            
+            file_path = b_cfg["path"] if b_cfg["type"] == "file" else None
+            
+            if file_path and os.path.exists(file_path):
+                # File mode
+                try:
+                    wb = load_workbook(file_path)
+                    if sheet_name not in wb.sheetnames:
+                        ws = wb.create_sheet(sheet_name)
+                        ws.append(header)
+                    else:
+                        ws = wb[sheet_name]
+                        
+                    ws.append(data_row)
+                    wb.save(file_path)
+                    messagebox.showinfo("저장 완료", f"기준 데이터 파일에 [{sheet_name}] 시트가 추가/업데이트 되었습니다.")
+                except Exception as e:
+                    messagebox.showerror("저장 실패", f"파일 저장 중 오류: {e}\n(파일이 열려있다면 닫고 시도하세요)")
+            
+            elif b_cfg["type"] == "open" and b_cfg["book"]:
+                # Open Excel mode (xlwings)
+                try:
+                    import xlwings as xw
+                    app = xw.apps.active
+                    wb = None
+                    try:
+                        wb = xw.books[b_cfg["book"]]
+                    except:
+                        # Try to find by name
+                        for b in xw.books:
+                            if b.name == b_cfg["book"]:
+                                wb = b
+                                break
+                    if not wb:
+                        raise Exception("엑셀 파일을 찾을 수 없습니다.")
+                        
+                    # Check sheet
+                    sheet_exists = False
+                    for s in wb.sheets:
+                        if s.name == sheet_name:
+                            sheet_exists = True
+                            break
+                    
+                    if not sheet_exists:
+                        ws = wb.sheets.add(sheet_name)
+                        ws.range("A1").value = header
+                    else:
+                        ws = wb.sheets[sheet_name]
+                    
+                    # Find next empty row
+                    # Simple approach: count used range
+                    last_row = ws.range(f"A{ws.cells.last_cell.row}").end('up').row
+                    ws.range(f"A{last_row+1}").value = data_row
+                    
+                    messagebox.showinfo("저장 완료", f"활성 엑셀 파일에 [{sheet_name}] 시트가 업데이트 되었습니다.")
+                    
+                except Exception as e:
+                    messagebox.showerror("저장 실패", f"열려있는 엑셀 제어 실패: {e}")
+            else:
+                 messagebox.showwarning("오류", "파일을 찾을 수 없거나 저장할 수 없는 상태입니다.")
+
+        except Exception as e:
+            messagebox.showerror("오류", f"저장 중 예기치 않은 오류 발생: {e}")
+    
     # -------------
     # Header loaders
     # -------------
     def _load_base_cols(self):
-        cfg = self.base_ui.get_config()
-        if not cfg.get("sheet"):
-            return
+        if not hasattr(self, 'src_loader'): return
+        cfg = self.src_loader.get_config()
+        if not cfg.get("sheet"): return
         try:
             if cfg["type"] == "file":
-                if not cfg["path"] or not os.path.exists(cfg["path"]):
-                    return
+                if not cfg["path"] or not os.path.exists(cfg["path"]): return
                 cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
             else:
-                if not cfg["book"]:
-                    return
+                if not cfg["book"]: return
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-
-            self.base_ui.key_listbox.set_items(cols)
-            if cols:
-                self.base_ui.key_listbox.select_item(cols[0])
+            
+            self.match_key_selector.set_items(cols)
         except Exception as e:
             self._log(f"기준 헤더 로드 실패: {e}")
 
     def _load_tgt_cols(self):
-        cfg = self.tgt_ui.get_config()
-        if not cfg.get("sheet"):
-            return
+        if not hasattr(self, 'tgt_loader'): return
+        cfg = self.tgt_loader.get_config()
+        if not cfg.get("sheet"): return
         try:
             if cfg["type"] == "file":
-                if not cfg["path"] or not os.path.exists(cfg["path"]):
-                    return
+                if not cfg["path"] or not os.path.exists(cfg["path"]): return
                 cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
             else:
-                if not cfg["book"]:
-                    return
+                if not cfg["book"]: return
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-
-            self.col_list.set_items(cols)
+            
+            self.target_col_selector.set_items(cols)
             self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
         except Exception as e:
             self._log(f"대상 헤더 로드 실패: {e}")
@@ -1596,10 +1724,10 @@ class App(BaseApp):
         """Execute matching with progress dialog"""
         try:
             # Validate inputs
-            b_cfg = self.base_ui.get_config()
-            t_cfg = self.tgt_ui.get_config()
-            keys = self.base_ui.get_selected_keys()
-            take = self.col_list.checked()
+            b_cfg = self.src_loader.get_config()
+            t_cfg = self.tgt_loader.get_config()
+            keys = self.match_key_selector.get_selected()
+            take = self.target_col_selector.get_selected()
 
             if not keys:
                 messagebox.showwarning("경고", "매칭할 키(Key)를 하나 이상 선택하세요.")
@@ -1712,7 +1840,8 @@ class App(BaseApp):
             def _update():
                 if not progress_win.winfo_exists():
                     return
-                progress_bar['value'] = value
+                if value is not None:
+                    progress_bar['value'] = value
                 status_label.config(text=message)
                 progress_win.update_idletasks()
             
@@ -1721,28 +1850,52 @@ class App(BaseApp):
         
         def worker_thread():
             """Background worker thread for matching"""
+            # Local Debug Logger
+            def _log_ui(msg):
+                try:
+                    import datetime
+                    log_path = os.path.join(os.path.expanduser("~"), "Desktop", "EasyMatch_Log.txt")
+                    with open(log_path, "a", encoding="utf-8") as f:
+                        f.write(f"[{datetime.datetime.now()}] [UI-Thread] {msg}\n")
+                except: pass
+
+            _log_ui("Thread Started")
             try:
+                # Initialize COM for Windows threading compatibility (just in case)
+                try:
+                    import pythoncom
+                    pythoncom.CoInitialize()
+                except:
+                    pass
+
                 if cancel_flag["cancelled"]:
+                    _log_ui("Cancelled at start")
                     return
                 
                 update_progress(10, "파일 읽는 중...")
                 
                 # Perform matching with progress updates
-                out_path, summary = match_universal(
-                    b_cfg, t_cfg, keys, take, OUT_DIR, options, replace_rules, 
-                    lambda msg: update_progress(
-                        min(90, progress_bar['value'] + 10), 
-                        msg if len(msg) < 50 else msg[:47] + "..."
-                    )
+                output_dir = self.out_path.get()
+                if not output_dir: 
+                    _log_ui("Output Dir empty. Fallback.")
+                    output_dir = OUT_DIR # fallback (but we set default in init)
+                
+                _log_ui(f"Calling match_universal. Out: {output_dir}")
+                
+                out_path, summary, preview = match_universal(
+                    b_cfg, t_cfg, keys, take, output_dir, options, replace_rules, 
+                    lambda msg, val=None: update_progress(val, msg)
                 )
                 
                 if cancel_flag["cancelled"]:
+                    _log_ui("Cancelled after match")
                     return
                 
                 update_progress(95, "결과 저장 중...")
                 result["out_path"] = out_path
                 result["summary"] = summary
                 
+                _log_ui(f"Success. OutPath: {out_path}")
                 update_progress(100, "완료!")
                 
                 # Close progress window after short delay
@@ -1758,13 +1911,34 @@ class App(BaseApp):
                             "저장 위치:\n"
                             f"{os.path.basename(out_path)}"
                         )
-                        messagebox.showinfo("성공", msg)
-                
+                        # Fix parent and wrap in try-except
+                        try:
+                            # Show custom preview if exists
+                            if preview is not None:
+                                show_preview_dialog(self, out_path, summary, preview)
+                            else:
+                                messagebox.showinfo("성공", msg, parent=self)
+                        except:
+                            # Fallback if parent invalid, though self should be valid
+                            messagebox.showinfo("성공", msg)
+
                 self.after(500, close_and_show_result)
                 
-            except Exception as e:
+            except BaseException as e:
+                # Catch ALL exceptions including SystemExit/KeyboardInterrupt to log them
                 result["error"] = str(e)
+                _log_ui(f"Worker Error: {e}")
                 
+                # Log to Desktop for guaranteed visibility
+                try:
+                    log_path = os.path.join(os.path.expanduser("~"), "Desktop", "EasyMatch_Error_Log.txt")
+                    with open(log_path, "a", encoding="utf-8") as f:
+                        import datetime
+                        f.write(f"\n[{datetime.datetime.now()}] CRITICAL RUNTIME ERROR: {str(e)}\n")
+                        import traceback
+                        traceback.print_exc(file=f)
+                except: pass
+
                 def show_error():
                     if progress_win.winfo_exists():
                         progress_win.destroy()
@@ -1778,7 +1952,12 @@ class App(BaseApp):
                             "- 파일 모드로 사용 가능"
                         )
                     
-                    messagebox.showerror("오류", f"실행 중 오류:\n{msg}")
+                    # Force parent to main window (self) to ensure visibility
+                    try:
+                        messagebox.showerror("오류", f"실행 중 오류:\n{msg}", parent=self)
+                    except:
+                        messagebox.showerror("오류", f"실행 중 오류:\n{msg}")
+
                     self._log(f"Error: {msg}")
                 
                 self.after(0, show_error)

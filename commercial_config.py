@@ -1,12 +1,12 @@
 # Commercial configuration
 APP_EDITION = "Commercial"
-COMMERCIAL_VERSION = "4.8.0"
+COMMERCIAL_VERSION = "1.0.0"
 from config import LICENSE_FILE
 # Admin password to open license panel
 ADMIN_PASSWORD = "admin"  # 관리자 비밀번호 (배포 시 변경 권장)
 
 # --- Footer Info ---
-CREATOR_NAME = "Made by 세은아빠"
+CREATOR_NAME = "세은아빠"
 SALES_INFO = "판매: 개인 / 기업"
 BANK_INFO = "입금계좌/예금주 : 대구은행 508-14-202118-7 이현주"
 PRICE_INFO = "개인: 1년(3.3만)/평생(8.8만) | 기업: 영구(18만)"
@@ -18,5 +18,10 @@ TRIAL_SUBJECT = "[ExcelMatcher] 한달 무료 체험 신청합니다"
 SUPPORT_MESSAGE = "이 프로그램이 도움이 되셨다면 후원으로 응원해주세요!\n개발자의 커피값이 됩니다."
 DONATION_CTA = "후원하기 (계좌 확인)"  # Call-to-action for donation
 
-# Personal plan limits
-PERSONAL_MAX_ROWS = 50000
+# Personal plan limits (Increased for developer/commercial testing)
+PERSONAL_MAX_ROWS = 1000000
+
+# --- Security / Remote Block ---
+# URL for the remote blacklist (e.g. GitHub Gist Raw URL)
+# Format: JSON list of strings ["HWID1", "HWID2", "KEY1"]
+BLACKLIST_URL = "https://raw.githubusercontent.com/username/repo/main/blacklist.json" # 판매자 비밀 주소로 변경 필요

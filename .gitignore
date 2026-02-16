@@ -6,3 +6,12 @@ dist/
 build/
 *.spec
 release/
+*.zip
+*.xlsx
+*.png
+*.webp
+*.jpg
+*.jpeg
+*.ico
+!assets/*.ico
+!assets/*.png

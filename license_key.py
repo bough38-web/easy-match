@@ -10,7 +10,7 @@ import struct
 # WARNING: Do not share this key if you distribute the source code openly.
 SECRET_KEY = b"ExcelMatcher_Secret_Key_2026_X9"
 
-def generate_key(expiry_str: str, license_type: str = "personal") -> str:
+def generate_key(expiry_str: str, license_type: str = "personal", **kwargs) -> str:
     """
     Generates a secure product key.
     Format: EM<VERSION>-<DATA_B32>-<SIGNATURE_B32>
@@ -22,6 +22,11 @@ def generate_key(expiry_str: str, license_type: str = "personal") -> str:
         "e": expiry_str,       # expiry
         "t": license_type[0]   # 'p' or 'e' (save space)
     }
+    
+    # Optional HWID binding
+    if kwargs.get("hwid"):
+        payload["h"] = kwargs["hwid"]
+
     payload_bytes = json.dumps(payload, separators=(',', ':')).encode('utf-8')
     
     # 2. Sign
@@ -76,7 +81,7 @@ def validate_key(key_string: str) -> tuple[bool, dict]:
         # 4. Check Expiry Logic (Optional here, but good to return data)
         # validation of date vs today is done by caller usually, but we return data.
         
-        return True, {"expiry": expiry, "type": l_type}
+        return True, {"expiry": expiry, "type": l_type, "hwid": payload.get("h")}
         
     except Exception:
         return False, {}

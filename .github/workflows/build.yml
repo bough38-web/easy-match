@@ -20,7 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -36,12 +36,8 @@ jobs:
             --hidden-import "xlwings" `
             --hidden-import "openpyxl" `
             --hidden-import "xlsxwriter" `
-            --hidden-import "PIL" `
-            --hidden-import "PIL.Image" `
-            --hidden-import "PIL.ImageTk" `
+            --collect-all "Pillow" `
             --add-data "assets;assets" `
-            --add-data "presets.json;." `
-            --add-data "replacements.json;." `
             --add-data "usage_guide.html;." `
             main.py
 

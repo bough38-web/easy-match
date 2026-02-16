@@ -1,5 +1,8 @@
 import pandas as pd, os, csv
+import openpyxl
+
 def _sniff_csv(file_path, enc):
+    # ... (existing code)
     try:
         with open(file_path,'r',encoding=enc) as f:
             sample=f.read(4096)
@@ -7,6 +10,24 @@ def _sniff_csv(file_path, enc):
             return dialect.delimiter
     except:
         return None
+
+# ... (rest of file)
+
+def get_sheet_names(file_path):
+    try:
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == '.xlsx':
+            try:
+                return openpyxl.load_workbook(file_path, read_only=True, keep_links=False).sheetnames
+            except:
+                return pd.ExcelFile(file_path).sheet_names
+        elif ext == '.xls':
+            return pd.ExcelFile(file_path).sheet_names
+        elif ext == '.csv':
+            return ['CSV']
+    except Exception as e:
+        print(f"Sheet load error: {e}")
+        return []
 
 def read_header_file(file_path, sheet_name=0, header_row=1):
     try:
@@ -74,10 +95,17 @@ def write_xlsx(file_path, df, sheet_name="Sheet1"):
 
 def get_sheet_names(file_path):
     try:
-        ext=os.path.splitext(file_path)[1].lower()
-        if ext in ['.xls','.xlsx']:
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext == '.xlsx':
+            try:
+                import openpyxl
+                return openpyxl.load_workbook(file_path, read_only=True, keep_links=False).sheetnames
+            except:
+                return pd.ExcelFile(file_path).sheet_names
+        elif ext == '.xls':
             return pd.ExcelFile(file_path).sheet_names
-        if ext=='.csv':
+        elif ext == '.csv':
             return ['CSV']
-    except:
+    except Exception as e:
+        print(f"Sheet load error: {e}")
         return []
