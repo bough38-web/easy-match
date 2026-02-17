@@ -2244,8 +2244,8 @@ class App(BaseApp):
         # Center the window
         progress_win.update_idletasks()
         x = (progress_win.winfo_screenwidth() // 2) - (500 // 2)
-        y = (progress_win.winfo_screenheight() // 2) - (200 // 2)
-        progress_win.geometry(f"500x200+{x}+{y}")
+        y = (progress_win.winfo_screenheight() // 2) - (240 // 2)
+        progress_win.geometry(f"500x240+{x}+{y}")
         
         # Progress frame
         frame = tk.Frame(progress_win, bg="white", padx=30, pady=30)
@@ -2282,26 +2282,28 @@ class App(BaseApp):
         # Cancel button
         cancel_flag = {"cancelled": False}
         
-        def cancel_matching():
-            cancel_flag["cancelled"] = True
-            cancel_btn.config(state="disabled", text="취소 중...")
+        def cancel_matching(e=None):
+            if not cancel_flag["cancelled"]:
+                cancel_flag["cancelled"] = True
+                cancel_btn.config(text="취소 중...", bg="#95a5a6", cursor="arrow")
         
-        cancel_btn = tk.Button(
+        cancel_btn = tk.Label(
             frame,
             text="종료 및 취소",
-            command=cancel_matching,
-            bg="#c0392b", # Darker red
+            bg="#e74c3c",
             fg="white",
             font=(get_system_font()[0], 12, "bold"),
-            relief="flat",
-            activebackground="#e74c3c",
-            activeforeground="white",
             padx=30,
-            pady=10,
+            pady=20,
             cursor="hand2",
-            borderwidth=0
+            relief="flat"
         )
-        cancel_btn.pack()
+        cancel_btn.pack(pady=15)
+        
+        # Bind interactions for the custom label-button
+        cancel_btn.bind("<Button-1>", cancel_matching)
+        cancel_btn.bind("<Enter>", lambda e: cancel_btn.config(bg="#c0392b") if not cancel_flag["cancelled"] else None)
+        cancel_btn.bind("<Leave>", lambda e: cancel_btn.config(bg="#e74c3c") if not cancel_flag["cancelled"] else None)
         
         # Result storage
         result = {"out_path": None, "summary": None, "error": None}
