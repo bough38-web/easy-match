@@ -93,7 +93,7 @@ jobs:
 
           # For now, just zip the app
           cd dist
-          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.12.app
+          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.13.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
