@@ -25,7 +25,7 @@ REM --hidden-import: ensure dependencies are included
 
 REM Build using CLI arguments (avoiding Spec file Unicode path issues)
 echo [BUILD] PyInstaller 실행 중 (CLI Mode)...
-pyinstaller --noconfirm --onefile --windowed ^
+pyinstaller --noconfirm --onedir --windowed ^
     --name "ExcelMatcher" ^
     --hidden-import "pandas" ^
     --hidden-import "xlwings" ^
@@ -44,7 +44,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [성공] 빌드 완료! 'dist/EasyMatch_v1.0.exe'를 확인하세요.
+echo [성공] 빌드 완료! 'dist/ExcelMatcher' 폴더를 확인하세요.
 echo.
 echo 이제 EXE 파일을 사용자에게 배포할 수 있습니다.
 echo EXE 파일은 독립 실행형이며 모든 의존성을 포함합니다.

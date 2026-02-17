@@ -459,7 +459,8 @@ class GridCheckList(ttk.Frame):
         self.q = tk.StringVar()
         ent = ttk.Entry(top, textvariable=self.q)
         ent.pack(side="left", fill="x", expand=True)
-        ent.bind("<KeyRelease>", lambda e: self._filter())
+        ent.bind("<KeyRelease>", self._on_key_release)
+        self.search_timer = None
         ttk.Button(top, text="지우기", width=6, command=self._clear).pack(side="left", padx=4)
 
         self.canvas = tk.Canvas(self, height=height, bg="white", highlightthickness=0)
@@ -539,7 +540,13 @@ class GridCheckList(ttk.Frame):
         self.q.set("")
         self._render(self.all_items)
 
+    def _on_key_release(self, event=None):
+        if self.search_timer:
+            self.after_cancel(self.search_timer)
+        self.search_timer = self.after(300, self._filter)
+
     def _filter(self):
+        self.search_timer = None
         q = (self.q.get() or "").strip().lower()
         if not q:
             self._render(self.all_items)

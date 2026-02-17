@@ -30,7 +30,7 @@ jobs:
 
       - name: Build Windows EXE
         run: |
-          pyinstaller --noconfirm --onefile --windowed `
+          pyinstaller --noconfirm --onedir --windowed `
             --name "ExcelMatcher" `
             --hidden-import "pandas" `
             --hidden-import "xlwings" `
@@ -42,11 +42,16 @@ jobs:
             --add-data "usage_guide.html;." `
             main.py
 
-      - name: Upload Windows EXE
+      - name: Zip Windows Build
+        run: |
+          cd dist
+          powershell Compress-Archive -Path ExcelMatcher -DestinationPath ExcelMatcher-Windows.zip
+
+      - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: EasyMatch-Windows
-          path: dist/ExcelMatcher.exe
+          path: dist/ExcelMatcher-Windows.zip
           retention-days: 30
 
   build-macos:
@@ -70,7 +75,7 @@ jobs:
       - name: Build macOS App
         run: |
           pyinstaller --noconfirm --onefile --windowed \
-            --name "ExcelMatcher_v1.0.15" \
+            --name "ExcelMatcher_v1.0.16" \
             --hidden-import "pandas" \
             --hidden-import "xlwings" \
             --hidden-import "openpyxl" \
@@ -93,7 +98,7 @@ jobs:
 
           # For now, just zip the app
           cd dist
-          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.15.app
+          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.16.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
