@@ -76,6 +76,18 @@ def _normalize_license_result(res):
 # 엔트리
 # -----------------------------
 def main():
+    # --- High DPI Awareness for Windows ---
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            # Shcore = 2 (PROCESS_PER_MONITOR_DPI_AWARE), 1 (PROCESS_SYSTEM_DPI_AWARE), 0 (DEFAULT)
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception as e:
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except:
+                pass
+    
     eprint("[ExcelMatcher] starting...")
 
     # 1) 라이선스 관련 모듈 로드

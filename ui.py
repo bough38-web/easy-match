@@ -981,8 +981,29 @@ class ColumnSelectorFrame(tk.LabelFrame): # Switch to tk.LabelFrame for consiste
         tools = tk.Frame(self, bg=bg_color)
         tools.pack(fill="x", pady=(0, 5))
         
-        tk.Button(tools, text="[V] 전체 선택", command=self.check_all, width=12, bg=bg_color).pack(side="left", padx=(0, 2))
-        tk.Button(tools, text="[X] 선택 해제", command=self.uncheck_all, width=12, bg=bg_color).pack(side="left", padx=(2, 0))
+        # Helper to create aesthetic label-buttons that match background perfectly
+        def create_btn(parent, text, cmd):
+            # Calculate a slightly darker color for hover:
+            # #f0f7ff -> #e0e7ef, #f0fff4 -> #e0efe4
+            hover_bg = "#e0e7ef" if bg_color == "#f0f7ff" else "#e0efe4"
+            
+            lbl = tk.Label(parent, text=text, bg="white", fg="black", # White inside for contrast
+                           relief="flat", cursor="hand2", font=(get_system_font()[0], 9),
+                           padx=10, pady=2, highlightthickness=1, highlightbackground="#cccccc")
+            
+            def on_enter(e): lbl.config(bg="#f8f8f8")
+            def on_leave(e): lbl.config(bg="white")
+            def on_click(e): 
+                lbl.config(relief="sunken")
+                self.after(60, lambda: (lbl.config(relief="flat"), cmd()))
+                
+            lbl.bind("<Enter>", on_enter)
+            lbl.bind("<Leave>", on_leave)
+            lbl.bind("<Button-1>", on_click)
+            return lbl
+
+        create_btn(tools, "[V] 전체 선택", self.check_all).pack(side="left", padx=(0, 4))
+        create_btn(tools, "[X] 선택 해제", self.uncheck_all).pack(side="left", padx=(4, 0))
         
         # List
         self.list = GridCheckList(self, columns=3, height=height, bg_color=self.bg_color)
@@ -1280,7 +1301,8 @@ class App(BaseApp):
             
             draw_header_content()
             if not self.assembly_done:
-                self.after(30, assembly_animation)
+                # Throttled: 30ms -> 50ms for better responsiveness
+                self.after(50, assembly_animation)
 
         # Start Shine Sweep Animation (Modified to wait for assembly)
         def shine_animation():
@@ -1311,7 +1333,8 @@ class App(BaseApp):
             else:
                 self.top_header.itemconfig(shine_item[0], state="hidden")
 
-            self.after(20, shine_animation)
+            # Throttled: 20ms -> 40ms to keep UI snappy
+            self.after(40, shine_animation)
 
         # Launch Assembly first
         self.after(800, assembly_animation)
