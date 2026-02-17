@@ -147,7 +147,8 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
                                 unique_set.add(s_val)
                 
                 wb.close()
-                return sorted(list(unique_set))
+                unique_list = sorted(list(unique_set))
+                return ["(값 있음)", "(값 없음)"] + unique_list
             except Exception as e:
                 print(f"Fast unique read failed, falling back: {e}")
 
@@ -169,9 +170,10 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
         if df is not None and not df.empty:
             series = df[column_name].astype(str).str.strip()
             unique_vals = sorted([v for v in series.unique() if v and v.lower() not in ['nan', 'none', 'null']])
-            return unique_vals
+            # Prepend Expert Options
+            return ["(값 있음)", "(값 없음)"] + unique_vals
             
-        return []
+        return ["(값 있음)", "(값 없음)"]
     except Exception as e:
         print(f"Unique value load error ({column_name}): {e}")
         return []

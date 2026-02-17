@@ -145,16 +145,20 @@ def match_universal(
                         f_val = str(val)
                         col_series = res_df[col].astype(str)
                     
-                    if op == "==": res_df = res_df[col_series == f_val]
+                    if op == "==": 
+                        if val == "(값 있음)":
+                            res_df = res_df[res_df[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).notnull()]
+                        elif val == "(값 없음)":
+                            res_df = res_df[res_df[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).isnull()]
+                        else:
+                            res_df = res_df[col_series == f_val]
                     elif op == ">=": res_df = res_df[col_series >= f_val]
                     elif op == "<=": res_df = res_df[col_series <= f_val]
                     elif op == ">": res_df = res_df[col_series > f_val]
                     elif op == "<": res_df = res_df[col_series < f_val]
                     elif op == "Exist":
-                        # Not null and not empty string
                         res_df = res_df[res_df[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).notnull()]
                     elif op == "Not Exist":
-                        # Is null or empty string
                         res_df = res_df[res_df[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).isnull()]
                     
                     _debug_log(f"[Filter] {label} ({col} {op} {val})")
@@ -180,7 +184,12 @@ def match_universal(
             if cancel_check(): raise InterruptedError()
             col, vals = tf.get("col"), tf.get("values")
             if col in df_t.columns and vals:
-                df_t = df_t[df_t[col].astype(str).isin(vals)].copy()
+                if "(값 있음)" in vals:
+                    df_t = df_t[df_t[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).notnull()].copy()
+                elif "(값 없음)" in vals:
+                    df_t = df_t[df_t[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).isnull()].copy()
+                else:
+                    df_t = df_t[df_t[col].astype(str).isin(vals)].copy()
                 log_progress(f"[Filter] 대상 데이터(고급): {len(df_t):,}건 (필터: {', '.join(vals)})")
 
     # Expert Option: Top 10
