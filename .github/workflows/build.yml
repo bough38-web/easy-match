@@ -36,6 +36,7 @@ jobs:
             --hidden-import "xlwings" `
             --hidden-import "openpyxl" `
             --hidden-import "xlsxwriter" `
+            --hidden-import "requests" `
             --collect-all "Pillow" `
             --add-data "assets;assets" `
             --add-data "usage_guide.html;." `
@@ -74,6 +75,7 @@ jobs:
             --hidden-import "xlwings" \
             --hidden-import "openpyxl" \
             --hidden-import "xlsxwriter" \
+            --hidden-import "requests" \
             --hidden-import "PIL" \
             --hidden-import "PIL.Image" \
             --hidden-import "PIL.ImageTk" \
