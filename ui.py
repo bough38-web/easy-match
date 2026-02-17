@@ -815,6 +815,11 @@ class FileLoaderFrame(ttk.LabelFrame):
 
     def _notify_change(self, event=None):
         self._refresh_filter_cols()
+        # Clear main app's unique value cache if configuration changes
+        main_app = self.winfo_toplevel()
+        if hasattr(main_app, "_clear_unique_cache"):
+            main_app._clear_unique_cache()
+            
         if self.on_change: self.on_change()
 
     def set_filter_state(self, active, col="", kw="", op="=="):
@@ -917,6 +922,11 @@ class FileLoaderFrame(ttk.LabelFrame):
 
     def _notify_change(self, event=None):
         self._refresh_filter_cols()
+        # Clear main app's unique value cache if configuration changes
+        main_app = self.winfo_toplevel()
+        if hasattr(main_app, "_clear_unique_cache"):
+            main_app._clear_unique_cache()
+            
         if self.on_change: self.on_change()
 
     def get_config(self):
@@ -1093,6 +1103,10 @@ class App(BaseApp):
         self.opt_top10 = tk.BooleanVar(value=False)
         self.opt_match_only = tk.BooleanVar(value=False)
         self.replacer_win = None
+        
+        # Centralized cache for unique column values (Optimization)
+        # Structure: {(file_path, sheet_name, header_row, col_name): [values...]}
+        self.unique_cache = {}
 
         self.title(APP_TITLE)
         self.geometry("1080x1080")
@@ -2141,31 +2155,55 @@ class App(BaseApp):
     def _fetch_base_unique_vals(self, col):
         from excel_io import get_unique_values
         cfg = self.src_loader.get_config()
-        try:
-            if cfg["type"] == "file" and cfg["path"]:
-                return get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
-            elif cfg["type"] == "open" and cfg["book"]:
-                from open_excel import read_table_open
+        if cfg["type"] == "file" and cfg["path"]:
+            # Check cache
+            cache_key = (cfg["path"], cfg["sheet"], cfg["header"], col)
+            if cache_key in self.unique_cache:
+                return self.unique_cache[cache_key]
+            
+            try:
+                vals = get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
+                if vals:
+                    self.unique_cache[cache_key] = vals
+                return vals
+            except: pass
+        elif cfg["type"] == "open" and cfg["book"]:
+            from open_excel import read_table_open
+            try:
                 df = read_table_open(cfg["book"], cfg["sheet"], cfg["header"], [col])
                 if not df.empty:
                     return sorted(df[col].unique().tolist())
-        except: pass
+            except: pass
         return []
 
     def _fetch_tgt_unique_vals(self, col):
         from excel_io import get_unique_values
         cfg = self.tgt_loader.get_config()
-        try:
-            if cfg["type"] == "file" and cfg["path"]:
-                return get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
-            elif cfg["type"] == "open" and cfg["book"]:
-                from open_excel import read_table_open
-                # Get the single column from open book
+        if cfg["type"] == "file" and cfg["path"]:
+            # Check cache
+            cache_key = (cfg["path"], cfg["sheet"], cfg["header"], col)
+            if cache_key in self.unique_cache:
+                return self.unique_cache[cache_key]
+                
+            try:
+                vals = get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
+                if vals:
+                    self.unique_cache[cache_key] = vals
+                return vals
+            except: pass
+        elif cfg["type"] == "open" and cfg["book"]:
+            from open_excel import read_table_open
+            try:
                 df = read_table_open(cfg["book"], cfg["sheet"], cfg["header"], [col])
                 if not df.empty:
                     return sorted(df[col].unique().tolist())
-        except: pass
+            except: pass
         return []
+
+    def _clear_unique_cache(self):
+        """Clears the unique values cache (called when file/sheet config change)"""
+        self.unique_cache = {}
+        self._log("필터 캐시가 초기화되었습니다.")
 
     # ----
     # Run

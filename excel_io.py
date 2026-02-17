@@ -137,13 +137,16 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
                     return []
 
                 unique_set = set()
+                # Pre-fetch lowercase check set for speed
+                excluded = {'nan', 'none', 'null', ''}
+                
                 # Iterate all rows AFTER header
                 for row in ws.iter_rows(min_row=header_row+1, values_only=True):
                     if col_idx < len(row):
                         val = row[col_idx]
                         if val is not None:
                             s_val = str(val).strip()
-                            if s_val and s_val.lower() not in ['nan', 'none', 'null']:
+                            if s_val and s_val.lower() not in excluded:
                                 unique_set.add(s_val)
                 
                 wb.close()
