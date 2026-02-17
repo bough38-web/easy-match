@@ -557,11 +557,66 @@ else:
 # -------------------------
 # New UI Components for Redesign
 # -------------------------
+class MultiFilterRow:
+    def __init__(self, master, get_cols_func, fetch_vals_func, on_remove):
+        self.frame = ttk.Frame(master)
+        self.frame.pack(fill="x", pady=2)
+        
+        self.get_cols = get_cols_func
+        self.fetch_vals = fetch_vals_func
+        
+        self.col_var = tk.StringVar()
+        self.op_var = tk.StringVar(value="==")
+        self.val_var = tk.StringVar()
+        
+        # Column
+        self.cb_col = ttk.Combobox(self.frame, textvariable=self.col_var, state="readonly", width=12)
+        self.cb_col.pack(side="left", padx=(0, 5))
+        self.cb_col.bind("<<ComboboxSelected>>", self._on_col_change)
+        
+        # Operator
+        self.cb_op = ttk.Combobox(self.frame, textvariable=self.op_var, values=["==", ">=", "<=", ">", "<"], state="readonly", width=4)
+        self.cb_op.pack(side="left", padx=(0, 5))
+        
+        # Value
+        self.cb_val = ttk.Combobox(self.frame, textvariable=self.val_var, state="normal", width=12)
+        self.cb_val.pack(side="left", padx=(0, 5))
+        self.cb_val.set("(값 선택)")
+        
+        # Remove
+        btn_rem = ttk.Button(self.frame, text="X", width=2, command=lambda: on_remove(self))
+        btn_rem.pack(side="left")
+
+        self.refresh_cols()
+
+    def refresh_cols(self):
+        cols = self.get_cols()
+        self.cb_col["values"] = cols
+        if cols and not self.col_var.get():
+            self.cb_col.current(0)
+            self._on_col_change()
+
+    def _on_col_change(self, event=None):
+        col = self.col_var.get()
+        if not col or not self.fetch_vals: return
+        vals = self.fetch_vals(col)
+        self.cb_val["values"] = vals
+        if vals:
+             self.cb_val.current(0)
+
+    def get_config(self):
+        return {
+            "col": self.col_var.get(),
+            "op": self.op_var.get(),
+            "keyword": self.val_var.get()
+        }
+
 class FileLoaderFrame(ttk.LabelFrame):
-    def __init__(self, master, title, mode_var, on_change=None):
+    def __init__(self, master, title, mode_var, on_change=None, on_fetch_vals=None):
         super().__init__(master, text=title, padding=10)
         self.mode = mode_var
         self.on_change = on_change
+        self.on_fetch_vals = on_fetch_vals
         
         self.path = tk.StringVar()
         self.book = tk.StringVar()
@@ -576,7 +631,7 @@ class FileLoaderFrame(ttk.LabelFrame):
         ttk.Radiobutton(top, text="열려있는 엑셀", value="open", variable=self.mode, command=self._refresh_ui).pack(side="left")
         
         # Align Refresh button
-        ttk.Button(top, text="새로고침", command=self.refresh_open, width=8).pack(side="right")
+        ttk.Button(top, text="새로고침", command=self.refresh_all, width=8).pack(side="right")
 
         # File Mode UI
         self.f_frame = ttk.Frame(self)
@@ -587,15 +642,6 @@ class FileLoaderFrame(ttk.LabelFrame):
             try:
                 entry.drop_target_register(DND_FILES)
                 entry.dnd_bind('<<Drop>>', self._on_drop)
-                # Visual feedback
-                def on_drag_enter(event):
-                    entry.config(background="#e8f5e9")
-                    return event.action
-                def on_drag_leave(event):
-                    entry.config(background="white")
-                    return event.action
-                entry.dnd_bind('<<DragEnter>>', on_drag_enter)
-                entry.dnd_bind('<<DragLeave>>', on_drag_leave)
             except: pass
 
         # Align Find button
@@ -619,7 +665,111 @@ class FileLoaderFrame(ttk.LabelFrame):
         ttk.Label(self.c_frame, text="헤더:").pack(side="left", padx=(10, 0))
         ttk.Spinbox(self.c_frame, from_=1, to=99, textvariable=self.header, width=5, command=self._notify_change).pack(side="left", padx=5)
 
+        # Filter UI (Redesigned)
+        self.f_opt_frame = ttk.Frame(self)
+        self.f_opt_frame.pack(fill="x", pady=(5, 0))
+        
+        self.filter_expanded = tk.BooleanVar(value=False)
+        self.btn_toggle_f = ttk.Button(self.f_opt_frame, text="▶ 필터 조건 설정 (0개)", command=self._toggle_filters)
+        self.btn_toggle_f.pack(side="left")
+        
+        self.f_container = ttk.Frame(self)
+        # Initially hidden
+        
+        self.f_rows: List[MultiFilterRow] = []
+        
+        self.row_controls = ttk.Frame(self.f_container)
+        self.row_controls.pack(fill="x", pady=5)
+        
+        self.btn_add_f = ttk.Button(self.row_controls, text="+ 필터 추가", command=self._add_filter_row)
+        self.btn_add_f.pack(side="left")
+        
         self._refresh_ui()
+
+    def _toggle_filters(self):
+        if self.filter_expanded.get():
+            self.f_container.pack_forget()
+            self.filter_expanded.set(False)
+            self._update_filter_btn_text()
+        else:
+            self.f_container.pack(fill="x", pady=5, after=self.f_opt_frame)
+            self.filter_expanded.set(True)
+            self._update_filter_btn_text()
+
+    def _update_filter_btn_text(self):
+        symbol = "▼" if self.filter_expanded.get() else "▶"
+        count = len(self.f_rows)
+        self.btn_toggle_f.config(text=f"{symbol} 필터 조건 설정 ({count}개)")
+
+    def _add_filter_row(self):
+        if len(self.f_rows) >= 5:
+            messagebox.showwarning("제한", "필터 조건은 최대 5개까지 가능합니다.")
+            return
+        
+        row = MultiFilterRow(self.f_container, self.get_cols_callback, self.on_fetch_vals, self._remove_filter_row)
+        # Insert before controls
+        row.frame.pack(after=None, before=self.row_controls)
+        self.f_rows.append(row)
+        self._update_filter_btn_text()
+
+    def _remove_filter_row(self, row):
+        row.frame.destroy()
+        if row in self.f_rows:
+            self.f_rows.remove(row)
+        self._update_filter_btn_text()
+
+    def get_cols_callback(self):
+        # Helper for FilterRow to get current columns
+        cfg = self.get_config()
+        try:
+            if cfg["type"] == "file" and cfg["path"]:
+                return read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
+            elif cfg["type"] == "open" and cfg["book"]:
+                return read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
+        except: pass
+        return []
+
+    def _refresh_filter_cols(self):
+        for row in self.f_rows:
+            row.refresh_cols()
+
+    def get_filters(self):
+        return [r.get_config() for r in self.f_rows]
+
+    def _notify_change(self, event=None):
+        self._refresh_filter_cols()
+        if self.on_change: self.on_change()
+
+    def set_filter_state(self, active, col="", kw="", op="=="):
+        """Programmatically set one filter (Legacy support / preset support)"""
+        if active:
+            if not self.filter_expanded.get():
+                self._toggle_filters()
+            # Clear existing if any? Usually presets want to set NEW state
+            self.clear_filters()
+            
+            row = MultiFilterRow(self.f_container, self.get_cols_callback, self.on_fetch_vals, self._remove_filter_row)
+            row.frame.pack(after=None, before=self.row_controls)
+            self.f_rows.append(row)
+            row.col_var.set(col)
+            row.op_var.set(op)
+            row.val_var.set(kw)
+            self._update_filter_btn_text()
+
+    def clear_filters(self):
+        """Removes all filter rows and updates UI"""
+        for r in self.f_rows[:]:
+            r.frame.destroy()
+        self.f_rows.clear()
+        self._update_filter_btn_text()
+        if self.filter_expanded.get():
+            self._toggle_filters() # Collapse if expanded
+
+    def refresh_all(self):
+        """Refresh open books and clear filters"""
+        self.refresh_open()
+        self.clear_filters()
+        if self.on_change: self.on_change()
 
     def _on_drop(self, event):
         try:
@@ -689,6 +839,7 @@ class FileLoaderFrame(ttk.LabelFrame):
         self._notify_change()
 
     def _notify_change(self, event=None):
+        self._refresh_filter_cols()
         if self.on_change: self.on_change()
 
     def get_config(self):
@@ -729,6 +880,86 @@ class ColumnSelectorFrame(ttk.LabelFrame):
         return self.list.checked()
 
 
+class TargetAdvFilterRow(ttk.Frame):
+    def __init__(self, master, available_cols, on_remove, on_fetch_vals):
+        super().__init__(master)
+        self.on_fetch_vals = on_fetch_vals
+        
+        self.col_var = tk.StringVar()
+        self.val_var = tk.StringVar()
+        
+        # Column selection
+        self.cb_col = ttk.Combobox(self, textvariable=self.col_var, values=available_cols, state="readonly", width=15)
+        self.cb_col.pack(side="left", padx=2)
+        self.cb_col.bind("<<ComboboxSelected>>", self._on_col_change)
+        
+        # Value selection (dropdown)
+        self.cb_val = ttk.Combobox(self, textvariable=self.val_var, state="readonly", width=15)
+        self.cb_val.pack(side="left", padx=2)
+        self.cb_val.set("(값 선택)")
+        
+        # Remove button
+        ttk.Button(self, text="-", width=3, command=on_remove).pack(side="left", padx=2)
+
+    def _on_col_change(self, event=None):
+        col = self.col_var.get()
+        if not col: return
+        
+        # Fetch unique values via callback
+        vals = self.on_fetch_vals(col)
+        self.cb_val["values"] = vals
+        if vals: self.cb_val.current(0)
+        else: self.cb_val.set("(데이터 없음)")
+
+    def get_filter(self):
+        col = self.col_var.get()
+        val = self.val_var.get()
+        if col and val and val != "(값 선택)" and val != "(데이터 없음)":
+            return {"col": col, "values": [val]}
+        return None
+
+
+class TargetFilterFrame(ttk.LabelFrame):
+    def __init__(self, master, get_cols_func, get_vals_func):
+        super().__init__(master, text="대상 데이터 고급 필터 (선택 사항)", padding=10)
+        self.get_cols_func = get_cols_func
+        self.get_vals_func = get_vals_func
+        self.rows: list[TargetAdvFilterRow] = []
+        
+        self.container = ttk.Frame(self)
+        self.container.pack(fill="x")
+        
+        btn_add = ttk.Button(self, text="+ 필터 추가", command=self.add_row)
+        btn_add.pack(pady=(5, 0))
+        ToolTip(btn_add, "특정 컬럼의 값으로 데이터를 필터링합니다. (예: 상태=처리완료)")
+
+    def add_row(self):
+        cols = self.get_cols_func()
+        if not cols:
+            messagebox.showwarning("오류", "먼저 대상 데이터를 불러와 주세요.")
+            return
+            
+        row = TargetAdvFilterRow(self.container, cols, lambda: self.remove_row(row), self.get_vals_func)
+        row.pack(fill="x", pady=2)
+        self.rows.append(row)
+
+    def remove_row(self, row):
+        row.destroy()
+        self.rows.remove(row)
+
+    def get_filters(self):
+        res = []
+        for r in self.rows:
+            f = r.get_filter()
+            if f: res.append(f)
+        return res
+
+    def clear(self):
+        for r in self.rows:
+            r.destroy()
+        self.rows = []
+
+
 
 class App(BaseApp):
     def __init__(self, license_info=None):
@@ -755,8 +986,10 @@ class App(BaseApp):
         self.presets: dict[str, list[str]] = {}  # Target presets (legacy name kept for compatibility check, but we will use self.target_presets)
         self.target_presets: dict[str, list[str]] = {}
         self.base_presets: dict[str, list[str]] = {}
-        self.opt_fuzzy = tk.BooleanVar(value=False)
+        self.opt_fuzzy = tk.BooleanVar(value=True)
         self.opt_color = tk.BooleanVar(value=True)
+        self.opt_top10 = tk.BooleanVar(value=False)
+        self.opt_match_only = tk.BooleanVar(value=False)
         self.replacer_win = None
 
         self.title(APP_TITLE)
@@ -789,6 +1022,15 @@ class App(BaseApp):
                 right_half = pil_img.crop((w//2, 0, w, h))
                 self.logo_left_tk = ImageTk.PhotoImage(left_half)
                 self.logo_right_tk = ImageTk.PhotoImage(right_half)
+            
+            # Load Gear Icon
+            gear_path = os.path.join(base_path, "assets", "gear.png")
+            if os.path.exists(gear_path):
+                gear_img = Image.open(gear_path)
+                gear_img.thumbnail((32, 32), Image.Resampling.LANCZOS)
+                self.gear_tk = ImageTk.PhotoImage(gear_img)
+            else:
+                self.gear_tk = None
         except Exception as ex:
             print(f"Logo load error: {ex}")
             self.logo_tk = None
@@ -841,7 +1083,10 @@ class App(BaseApp):
 
             # 3. Gear Icon (License/Admin) on Right (Expert Position)
             gear_x = width - 95
-            self.top_header.create_text(gear_x, y_center, text="⚙️", font=(get_system_font()[0], 18), fill="white", tags=("content", "gear_btn"))
+            if hasattr(self, 'gear_tk') and self.gear_tk:
+                self.top_header.create_image(gear_x, y_center, image=self.gear_tk, tags=("content", "gear_btn"))
+            else:
+                self.top_header.create_text(gear_x, y_center, text="S", font=(get_system_font()[0], 18, "bold"), fill="white", tags=("content", "gear_btn"))
             
             # Hover/Click effect binding for Gear
             self.top_header.tag_bind("gear_btn", "<Button-1>", lambda e: open_expert_menu(e))
@@ -1111,8 +1356,14 @@ class App(BaseApp):
         ToolTip(fuzzy_check, "오타를 자동으로 보정합니다\n예: '홍길동' ≈ '홍길둥' (유사도 90% 이상)")
         
         color_check = ttk.Checkbutton(opt_frame, text="색상 강조 (Highlight)", variable=self.opt_color)
-        color_check.pack(side="left")
+        color_check.pack(side="left", padx=(0, 10))
         ToolTip(color_check, "매칭된 행에 색상을 추가하여 결과를 쉽게 확인할 수 있습니다")
+
+        top10_check = ttk.Checkbutton(opt_frame, text="전문가용: 상위 10개만 추출", variable=self.opt_top10)
+        top10_check.pack(side="left", padx=(0, 10))
+        ToolTip(top10_check, "대상 데이터의 상위 10개 결과만 추출합니다 (대량 데이터 샘플링용)")
+
+        # match_only_check moved to Footer for better visibility
 
         # Log text area (always visible) - reduced height
         self.log_txt = tk.Text(footer, height=2, state="disabled", bg="#f0f0f0")  # Reduced to 2
@@ -1131,6 +1382,15 @@ class App(BaseApp):
             if d: self.out_path.set(d)
             
         ttk.Button(out_frame, text="폴더 변경", command=pick_out_dir).pack(side="left")
+
+        # Option: Match Only (Moved from Advanced to here for visibility)
+        match_only_frame = ttk.Frame(footer)
+        match_only_frame.pack(side="bottom", fill="x", pady=(0, 5))
+        
+        # Use a style to make it stand out or just standard
+        mo_chk = ttk.Checkbutton(match_only_frame, text="[중요] 매칭된 결과만 저장 (미매칭 제외)", variable=self.opt_match_only)
+        mo_chk.pack(anchor="center")
+        ToolTip(mo_chk, "체크 시: 매칭에 성공한 행만 저장합니다.\n해제 시: 원본 기준 데이터의 모든 행을 유지하며 매칭된 정보를 붙입니다.")
 
         # Run button with Green styling (Matching Usage Guide)
         # Run button with Green styling (Matching Usage Guide) - Using Label for macOS color support
@@ -1182,12 +1442,20 @@ class App(BaseApp):
         split_frame.pack(fill="x", expand=True)
 
         # Left: Source Loader
-        self.src_loader = FileLoaderFrame(split_frame, "1. 기준 데이터 (Key 보유)", self.base_mode, on_change=self._load_base_cols)
+        self.src_loader = FileLoaderFrame(split_frame, "1. 기준 데이터 (Key 보유)", self.base_mode, on_change=self._load_base_cols, on_fetch_vals=self._fetch_base_unique_vals)
         self.src_loader.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
         # Right: Target Loader
-        self.tgt_loader = FileLoaderFrame(split_frame, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode, on_change=self._load_tgt_cols)
+        self.tgt_loader = FileLoaderFrame(split_frame, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode, on_change=self._load_tgt_cols, on_fetch_vals=self._fetch_tgt_unique_vals)
         self.tgt_loader.pack(side="right", fill="both", expand=True, padx=(5, 0))
+
+        # Advanced Filter Setup
+        self.filter_win = None
+        self.tgt_filter_ui = TargetFilterFrame(None, self._get_tgt_cols, self._fetch_tgt_unique_vals)
+        
+        btn_adv_filter = ttk.Button(split_frame, text="대상 데이터 고급 필터 설정", command=self.open_advanced_filter)
+        btn_adv_filter.pack(side="bottom", anchor="e", pady=(5, 0))
+        ToolTip(btn_adv_filter, "대상 데이터에 대해 상세 필터(여러 값 동시 선택 등)를 설정합니다.")
 
         # --- 3. Column Selectors (Middle - Split Layout) ---
         col_content = ttk.Frame(main)
@@ -1299,20 +1567,20 @@ class App(BaseApp):
             price_frame = tk.Frame(container, bg="#ecf0f1", relief="solid", borderwidth=1)
             price_frame.pack(fill="x", pady=(0, 12))
             
-            tk.Label(price_frame, text="▶ 가격 안내", font=(get_system_font()[0], 12, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
-            tk.Label(price_frame, text="개인: 1년 33,000원 / 평생 88,000원 (최대 50,000행)", font=(get_system_font()[0], 9), bg="#ecf0f1", fg="#34495e", anchor="w").pack(anchor="w", padx=15, pady=1)
+            tk.Label(price_frame, text="> 가격 안내", font=(get_system_font()[0], 12, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
+            tk.Label(price_frame, text="개인: 1년 33,000원 / 평생 132,000원 (최대 100만행)", font=(get_system_font()[0], 9), bg="#ecf0f1", fg="#34495e", anchor="w").pack(anchor="w", padx=15, pady=1)
             tk.Label(price_frame, text="기업: 영구 180,000원 (무제한)", font=(get_system_font()[0], 9, "bold"), bg="#ecf0f1", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=(1, 10))
             
             # Section 2: Payment/Donation Account
             payment_frame = tk.Frame(container, bg="#e8f5e9", relief="solid", borderwidth=1)
             payment_frame.pack(fill="x", pady=(0, 12))
             
-            tk.Label(payment_frame, text="▶ 입금(후원) 계좌", font=(get_system_font()[0], 12, "bold"), bg="#e8f5e9", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
-            tk.Label(payment_frame, text="대구은행 508-14-202118-7 (이현주)", font=(get_system_font()[0], 10, "bold"), bg="#e8f5e9", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=2)
+            tk.Label(payment_frame, text="> 입금(후원) 계좌", font=(get_system_font()[0], 12, "bold"), bg="#e8f5e9", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
+            tk.Label(payment_frame, text="카카오뱅크 3333-03-9648364 (박희본)", font=(get_system_font()[0], 10, "bold"), bg="#e8f5e9", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=2)
             
             def copy_account():
                 top.clipboard_clear()
-                top.clipboard_append("508-14-202118-7")
+                top.clipboard_append("3333-03-9648364")
                 top.update()
                 messagebox.showinfo("완료", "계좌번호가 복사되었습니다!", parent=top)
             
@@ -1330,8 +1598,9 @@ class App(BaseApp):
             contact_frame = tk.Frame(container, bg="#fff3e0", relief="solid", borderwidth=1)
             contact_frame.pack(fill="x", pady=(0, 20))
             
-            tk.Label(contact_frame, text="▶ 커스터마이징 문의", font=(get_system_font()[0], 12, "bold"), bg="#fff3e0", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
-            tk.Label(contact_frame, text="bough38@gmail.com", font=(get_system_font()[0], 10, "bold"), bg="#fff3e0", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=2)
+            tk.Label(contact_frame, text="> 커스터마이징 문의", font=(get_system_font()[0], 12, "bold"), bg="#fff3e0", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
+            tk.Label(contact_frame, text="이메일: bough38@gmail.com", font=(get_system_font()[0], 10, "bold"), bg="#fff3e0", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=1)
+            tk.Label(contact_frame, text="디스코드: bough38 (세은아빠)", font=(get_system_font()[0], 10, "bold"), bg="#fff3e0", fg="#2980b9", anchor="w").pack(anchor="w", padx=15, pady=(1, 10))
             
             def copy_email():
                 top.clipboard_clear()
@@ -1339,10 +1608,10 @@ class App(BaseApp):
                 top.update()
                 messagebox.showinfo("완료", "이메일 주소가 복사되었습니다!", parent=top)
             
-            # Copy Email Button (Label for macOS)
+            # Copy Email Button
             btn_copy_email = tk.Label(contact_frame, text="이메일 복사", bg="#7f8c8d", fg="white", 
                            font=(get_system_font()[0], 9, "bold"), padx=12, pady=4, cursor="hand2", relief="raised")
-            btn_copy_email.pack(anchor="w", padx=15, pady=(4, 10))
+            btn_copy_email.pack(anchor="w", padx=15, pady=(0, 10))
             btn_copy_email.bind("<Button-1>", lambda e: copy_email())
             # Hover
             btn_copy_email.bind("<Enter>", lambda e: btn_copy_email.config(bg="#5d6d6e", relief="sunken"))
@@ -1430,12 +1699,50 @@ class App(BaseApp):
         self._load_base_cols()
         self._load_tgt_cols()
 
+        # Monitoring: Report Usage Status to Discord
+        try:
+            from monitor import report_usage_status
+            from commercial_config import DISCORD_WEBHOOK_URL
+            report_usage_status(DISCORD_WEBHOOK_URL)
+        except Exception as e:
+            import logging
+            logging.error(f"Failed to initiate monitoring: {e}")
+
+        # macOS에서 앱이 백그라운드에 가려지는 문제 방지 (앞으로 가져오기)
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
+        self.focus_force()
+
     def _log(self, msg: str):
         self.log_txt.config(state="normal")
         self.log_txt.insert("end", f"- {msg}\n")
         self.log_txt.see("end")
         self.log_txt.config(state="disabled")
         self.update_idletasks()
+
+    def open_advanced_filter(self):
+        """Open advanced filter settings in a popup window"""
+        if self.filter_win is None or not self.filter_win.winfo_exists():
+            self.filter_win = tk.Toplevel(self)
+            self.filter_win.title("대상 데이터 고급 필터 설정")
+            self.filter_win.geometry("600x400")
+            self.filter_win.transient(self)
+            
+            # Re-parent or re-create the filter UI inside the popup
+            container = ttk.Frame(self.filter_win, padding=20)
+            container.pack(fill="both", expand=True)
+            
+            # Clear and Re-create for safety on re-open
+            for child in container.winfo_children(): child.destroy()
+            
+            self.tgt_filter_ui = TargetFilterFrame(container, self._get_tgt_cols, self._fetch_tgt_unique_vals)
+            self.tgt_filter_ui.pack(fill="both", expand=True)
+            
+            # Add a close button at bottom
+            ttk.Button(container, text="확인 (적용)", command=self.filter_win.destroy).pack(pady=(10, 0))
+        else:
+            self.filter_win.lift()
 
     def open_replacer(self):
         if self.replacer_win is None or not self.replacer_win.winfo_exists():
@@ -1703,19 +2010,56 @@ class App(BaseApp):
     def _load_tgt_cols(self):
         if not hasattr(self, 'tgt_loader'): return
         cfg = self.tgt_loader.get_config()
-        if not cfg.get("sheet"): return
+        if cfg["type"] == "file" and not cfg["path"]: return
+        if cfg["type"] == "open" and not cfg["book"]: return
         try:
             if cfg["type"] == "file":
-                if not cfg["path"] or not os.path.exists(cfg["path"]): return
                 cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
             else:
-                if not cfg["book"]: return
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-            
             self.target_col_selector.set_items(cols)
             self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
         except Exception as e:
             self._log(f"대상 헤더 로드 실패: {e}")
+
+    def _get_tgt_cols(self):
+        cfg = self.tgt_loader.get_config()
+        try:
+            if cfg["type"] == "file" and cfg["path"]:
+                return read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
+            elif cfg["type"] == "open" and cfg["book"]:
+                return read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
+        except: pass
+        return []
+
+    def _fetch_base_unique_vals(self, col):
+        from excel_io import get_unique_values
+        cfg = self.src_loader.get_config()
+        try:
+            if cfg["type"] == "file" and cfg["path"]:
+                return get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
+            elif cfg["type"] == "open" and cfg["book"]:
+                from open_excel import read_table_open
+                df = read_table_open(cfg["book"], cfg["sheet"], cfg["header"], [col])
+                if not df.empty:
+                    return sorted(df[col].unique().tolist())
+        except: pass
+        return []
+
+    def _fetch_tgt_unique_vals(self, col):
+        from excel_io import get_unique_values
+        cfg = self.tgt_loader.get_config()
+        try:
+            if cfg["type"] == "file" and cfg["path"]:
+                return get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
+            elif cfg["type"] == "open" and cfg["book"]:
+                from open_excel import read_table_open
+                # Get the single column from open book
+                df = read_table_open(cfg["book"], cfg["sheet"], cfg["header"], [col])
+                if not df.empty:
+                    return sorted(df[col].unique().tolist())
+        except: pass
+        return []
 
     # ----
     # Run
@@ -1736,16 +2080,33 @@ class App(BaseApp):
                 messagebox.showwarning("경고", "가져올 컬럼을 선택하세요.")
                 return
 
-            options = {"fuzzy": self.opt_fuzzy.get(), "color": self.opt_color.get()}
+            options = {
+                "fuzzy": self.opt_fuzzy.get(),
+                "color": self.opt_color.get(),
+                "top10": self.opt_top10.get(),
+                "match_only": self.opt_match_only.get()
+            }
+            
+            # Replacement Rules
+            active_replace_rules = _load_replace_file()["active"]
 
-            replace_rules = (
-                self.replacer_win.get_rules()
-                if self.replacer_win and self.replacer_win.winfo_exists()
-                else (_load_replace_file().get("active", {}) or {})
-            )
+            # Filters
+            applied_filters = {}
+            
+            src_f = self.src_loader.get_filters()
+            if src_f:
+                applied_filters["base_multi"] = src_f
+            
+            tgt_f = self.tgt_loader.get_filters()
+            if tgt_f:
+                applied_filters["target_multi"] = tgt_f
+            
+            target_adv = self.tgt_filter_ui.get_filters()
+            if target_adv:
+                applied_filters["target_advanced"] = target_adv
 
             # Create progress dialog
-            self._show_progress_dialog(b_cfg, t_cfg, keys, take, options, replace_rules)
+            self._show_progress_dialog(b_cfg, t_cfg, keys, take, options, active_replace_rules, applied_filters)
 
         except Exception as e:
             traceback.print_exc()
@@ -1762,7 +2123,7 @@ class App(BaseApp):
             messagebox.showerror("오류", f"실행 중 오류:\n{msg}")
             self._log(f"Error: {msg}")
 
-    def _show_progress_dialog(self, b_cfg, t_cfg, keys, take, options, replace_rules):
+    def _show_progress_dialog(self, b_cfg, t_cfg, keys, take, options, active_replace_rules, filters):
         """Show progress dialog and run matching in background thread"""
         import threading
         
@@ -1821,14 +2182,18 @@ class App(BaseApp):
         
         cancel_btn = tk.Button(
             frame,
-            text="취소",
+            text="종료 및 취소",
             command=cancel_matching,
-            bg="#e74c3c",
+            bg="#c0392b", # Darker red
             fg="white",
-            font=(get_system_font()[0], 11, "bold"),
-            padx=20,
-            pady=5,
-            cursor="hand2"
+            font=(get_system_font()[0], 12, "bold"),
+            relief="flat",
+            activebackground="#e74c3c",
+            activeforeground="white",
+            padx=30,
+            pady=10,
+            cursor="hand2",
+            borderwidth=0
         )
         cancel_btn.pack()
         
@@ -1883,8 +2248,9 @@ class App(BaseApp):
                 _log_ui(f"Calling match_universal. Out: {output_dir}")
                 
                 out_path, summary, preview = match_universal(
-                    b_cfg, t_cfg, keys, take, output_dir, options, replace_rules, 
-                    lambda msg, val=None: update_progress(val, msg)
+                    b_cfg, t_cfg, keys, take, output_dir, options, active_replace_rules, filters,
+                    lambda msg, val=None: update_progress(val, msg),
+                    cancel_check=lambda: cancel_flag["cancelled"]
                 )
                 
                 if cancel_flag["cancelled"]:

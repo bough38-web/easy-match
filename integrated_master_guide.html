@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Match Master Guide v1.0.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --sidebar-width: 250px;
+            --header-height: 60px;
+            --primary: #1e293b;
+            --active: #3b82f6;
+            --text-light: #f1f5f9;
+            --text-dark: #334155;
+            --bg-light: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background: var(--bg-light);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--primary);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .brand {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-weight: 700;
+            font-size: 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .menu {
+            flex: 1;
+            padding: 20px 0;
+        }
+
+        .menu-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #ccc;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .menu-item.active {
+            background: rgba(59, 130, 246, 0.1);
+            color: white;
+            border-left-color: var(--active);
+            font-weight: 600;
+        }
+
+        .footer {
+            padding: 20px;
+            font-size: 0.8rem;
+            color: #64748b;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .header {
+            height: var(--header-height);
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            font-weight: 600;
+            color: var(--text-dark);
+            justify-content: space-between;
+        }
+
+        .content-area {
+            flex: 1;
+            position: relative;
+            background: #fff;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+            /* Hidden by default */
+        }
+
+        iframe.active {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sidebar">
+        <div class="brand">Easy Match Studio</div>
+        <div class="menu">
+            <div class="menu-item active" onclick="showTab('market')">
+                <span>🛍️</span> 판매 페이지 (Sales)
+            </div>
+            <div class="menu-item" onclick="showTab('manual')">
+                <span>📖</span> 사용자 매뉴얼
+            </div>
+            <div class="menu-item" onclick="showTab('proposal')">
+                <span>📝</span> 정부 제안서
+            </div>
+            <div class="menu-item" onclick="showTab('tech')">
+                <span>⚙️</span> 기술 보고서
+            </div>
+        </div>
+        <div class="footer">
+            v1.0.0 Integrated View<br>
+            Updated: 2026.02.17
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="header">
+            <span id="page-title">마켓플레이스 상세 페이지</span>
+            <span style="font-size:0.8em; color:#64748b;">bough38@gmail.com</span>
+        </div>
+        <div class="content-area">
+            <!-- Iframes loading local files -->
+            <iframe id="frame-market" src="marketplace_sales_page.html" class="active"></iframe>
+            <iframe id="frame-manual" src="user_manual_v1.0.html"></iframe>
+            <iframe id="frame-proposal" src="official_proposal_v1.0.html"></iframe>
+            <iframe id="frame-tech" src="technical_report_v1.0.html"></iframe>
+        </div>
+    </div>
+
+    <script>
+        function showTab(id) {
+            // 1. Update Menu
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // 2. Update Title
+            const titles = {
+                'market': '마켓플레이스 상세 페이지',
+                'manual': '사용자 매뉴얼 가이드',
+                'proposal': '국민 창의 아이디어 제안서',
+                'tech': '기술 평가 및 아키텍처 보고서'
+            };
+            document.getElementById('page-title').innerText = titles[id];
+
+            // 3. Switch Iframe
+            document.querySelectorAll('iframe').forEach(el => el.classList.remove('active'));
+            document.getElementById('frame-' + id).classList.add('active');
+        }
+    </script>
+
+</body>
+
+</html>

@@ -1,5 +1,6 @@
 from matcher import match_universal
 import os
+import pandas as pd
 
 b_cfg = {
     "type": "file",
@@ -15,23 +16,29 @@ t_cfg = {
 }
 keys = ["Key"]
 take = ["Salary"]
-out_dir = os.path.abspath("test_output")
-options = {"fuzzy": False, "color": False}
+out_dir = os.path.abspath("test_output_options")
+options = {"fuzzy": False, "color": False, "match_only": True}
 replace_rules = {}
 
 def progress_cb(msg, val=None):
-    import re
     print(f"[PROGRESS] {msg} ({val})")
-    # Verify timer format: "Message (1.2s)"
-    if not re.search(r"\(\d+\.\d+s\)", msg) and "대용량" not in msg and "Warn" not in msg:
-        print(f"[WARNING] Timer missing in message: {msg}")
 
 try:
-    print("Starting match...")
+    print("Starting match with match_only=True...")
     filters = {}
     out, summary, preview = match_universal(b_cfg, t_cfg, keys, take, out_dir, options, replace_rules, filters, progress=progress_cb)
     print("Result:", out)
     print("Summary:", summary)
+    
+    # Verify result
+    df = pd.read_excel(out, sheet_name="matched")
+    print(f"Result Rows: {len(df)}")
+    
+    if len(df) == 2:
+        print("TEST PASSED: Only matched rows saved.")
+    else:
+        print(f"TEST FAILED: Expected 2 rows, got {len(df)}")
+
 except Exception as e:
     import traceback
     traceback.print_exc()

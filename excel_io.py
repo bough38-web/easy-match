@@ -80,6 +80,39 @@ def read_table_file(file_path, sheet_name, header_row, usecols):
     df=df.astype(str).replace(['nan','NaN','None','<NA>'],'')
     return df
 
+def get_unique_values(file_path, sheet_name, header_row, column_name):
+    """
+    Returns a sorted list of unique entries for a specific column (for dropdown filters).
+    """
+    try:
+        ext = os.path.splitext(file_path)[1].lower()
+        header_idx = header_row - 1
+        
+        # We only need one column, but read small chunks or use usecols for performance
+        if ext in ['.xls', '.xlsx']:
+            df = pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx, usecols=[column_name])
+        elif ext == '.csv':
+            df = None
+            for enc in ['cp949', 'utf-8', 'euc-kr']:
+                try:
+                    sep = _sniff_csv(file_path, enc)
+                    df = pd.read_csv(file_path, header=header_idx, usecols=[column_name], encoding=enc, sep=sep, engine='python')
+                    break
+                except: continue
+        else:
+            return []
+            
+        if df is not None and not df.empty:
+            # Convert to string, drop empty/nan, get unique
+            series = df[column_name].astype(str).str.strip()
+            unique_vals = sorted([v for v in series.unique() if v and v.lower() not in ['nan', 'none', 'null']])
+            return unique_vals
+            
+        return []
+    except Exception as e:
+        print(f"Unique value load error ({column_name}): {e}")
+        return []
+
 def write_xlsx(file_path, df, sheet_name="Sheet1"):
     try:
         try:
@@ -93,19 +126,3 @@ def write_xlsx(file_path, df, sheet_name="Sheet1"):
     except Exception as e:
         raise Exception(f"파일 저장 실패: {e}")
 
-def get_sheet_names(file_path):
-    try:
-        ext = os.path.splitext(file_path)[1].lower()
-        if ext == '.xlsx':
-            try:
-                import openpyxl
-                return openpyxl.load_workbook(file_path, read_only=True, keep_links=False).sheetnames
-            except:
-                return pd.ExcelFile(file_path).sheet_names
-        elif ext == '.xls':
-            return pd.ExcelFile(file_path).sheet_names
-        elif ext == '.csv':
-            return ['CSV']
-    except Exception as e:
-        print(f"Sheet load error: {e}")
-        return []
