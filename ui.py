@@ -478,9 +478,12 @@ class GridCheckList(ttk.Frame):
         self.all_items: list[str] = []
 
     def set_items(self, items):
-        self.all_items = list(items or [])
+        items = list(items or [])
+        if self.all_items == items: 
+            return # No change, skip expensive re-render
+            
+        self.all_items = items
         self.vars.clear()
-        # Initialize vars for ALL items so get_selected works even if not rendered
         for it in self.all_items:
             self.vars[it] = tk.BooleanVar(value=False)
         self._render(self.all_items)
@@ -498,13 +501,20 @@ class GridCheckList(ttk.Frame):
             ttk.Label(self.inner, text="(데이터 없음)").pack()
             return
             
+        # Fast batch creation: withdraw window updates during child creation
+        self.inner.pack_forget() 
+        
         for idx, it in enumerate(display_items):
-            # Ensure var exists (should be done in set_items, but check for safety)
             if it not in self.vars:
                 self.vars[it] = tk.BooleanVar(value=False)
                 
-            cb = ttk.Checkbutton(self.inner, text=it, variable=self.vars[it])
-            cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=2)
+            # Use tk.Checkbutton for significantly better PERFORMANCE than ttk in large lists
+            cb = tk.Checkbutton(self.inner, text=it, variable=self.vars[it], 
+                                bg="white", activebackground="white", selectcolor="white",
+                                font=(get_system_font()[0], 10))
+            cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=1)
+            
+        self.inner.pack(fill="both", expand=True)
             
         # Show warning if truncated
         if len(items) > MAX_ITEMS:
@@ -796,10 +806,14 @@ class FileLoaderFrame(ttk.LabelFrame):
         self._update_filter_btn_text()
 
     def get_cols_callback(self):
-        # Helper for FilterRow to get current columns
+        # Helper for FilterRow to get current columns using App's cache
         cfg = self.get_config()
+        app = self.winfo_toplevel()
         try:
             if cfg["type"] == "file" and cfg["path"]:
+                if hasattr(app, "_fetch_headers"):
+                    return app._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
+                from excel_io import read_header_file
                 return read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
             elif cfg["type"] == "open" and cfg["book"]:
                 return read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
@@ -862,11 +876,17 @@ class FileLoaderFrame(ttk.LabelFrame):
                 return
             self.path.set(file_path)
             try:
-                self.cb_sheet["values"] = get_sheet_names(file_path)
-                if self.cb_sheet["values"]:
-                    self.cb_sheet.current(0)
+                # Use master's cache if available
+                app = self.winfo_toplevel()
+                sheets = []
+                if hasattr(app, "_fetch_sheet_names"):
+                    sheets = app._fetch_sheet_names(file_path)
+                else:
+                    sheets = get_sheet_names(file_path)
+                
+                self.cb_sheet["values"] = sheets
+                if sheets: self.cb_sheet.current(0)
             except Exception as e:
-                # Silently fail or log? Better to show if explicit file drop
                 messagebox.showerror("오류", f"시트 목록을 불러올 수 없습니다:\n{e}")
             
             event.widget.config(background="white")
@@ -889,9 +909,15 @@ class FileLoaderFrame(ttk.LabelFrame):
         if not p: return
         self.path.set(p)
         try:
-            self.cb_sheet["values"] = get_sheet_names(p)
-            if self.cb_sheet["values"]:
-                self.cb_sheet.current(0)
+            app = self.winfo_toplevel()
+            sheets = []
+            if hasattr(app, "_fetch_sheet_names"):
+                sheets = app._fetch_sheet_names(p)
+            else:
+                sheets = get_sheet_names(p)
+            
+            self.cb_sheet["values"] = sheets
+            if sheets: self.cb_sheet.current(0)
         except Exception as e:
             messagebox.showerror("오류", f"시트 목록을 불러올 수 없습니다:\n{e}")
         self._notify_change()
@@ -1104,9 +1130,10 @@ class App(BaseApp):
         self.opt_match_only = tk.BooleanVar(value=False)
         self.replacer_win = None
         
-        # Centralized cache for unique column values (Optimization)
-        # Structure: {(file_path, sheet_name, header_row, col_name): [values...]}
-        self.unique_cache = {}
+        # Centralized caches for performance
+        self.unique_cache = {}  # (path, sheet, header, col): values
+        self.header_cache = {}  # (path, sheet, header): [cols...]
+        self.sheet_cache = {}   # path: [sheets...]
 
         self.title(APP_TITLE)
         self.geometry("1080x1080")
@@ -2111,6 +2138,25 @@ class App(BaseApp):
     # -------------
     # Header loaders
     # -------------
+    def _fetch_headers(self, path, sheet, header):
+        key = (path, sheet, header)
+        if key in self.header_cache: return self.header_cache[key]
+        try:
+            from excel_io import read_header_file
+            cols = read_header_file(path, sheet, header)
+            if cols: self.header_cache[key] = cols
+            return cols
+        except: return []
+
+    def _fetch_sheet_names(self, path):
+        if path in self.sheet_cache: return self.sheet_cache[path]
+        try:
+            from excel_io import get_sheet_names
+            sheets = get_sheet_names(path)
+            if sheets: self.sheet_cache[path] = sheets
+            return sheets
+        except: return []
+
     def _load_base_cols(self):
         if not hasattr(self, 'src_loader'): return
         cfg = self.src_loader.get_config()
@@ -2118,7 +2164,7 @@ class App(BaseApp):
         try:
             if cfg["type"] == "file":
                 if not cfg["path"] or not os.path.exists(cfg["path"]): return
-                cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
+                cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
             else:
                 if not cfg["book"]: return
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
@@ -2134,7 +2180,7 @@ class App(BaseApp):
         if cfg["type"] == "open" and not cfg["book"]: return
         try:
             if cfg["type"] == "file":
-                cols = read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
+                cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
             else:
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
             self.target_col_selector.set_items(cols)
@@ -2146,7 +2192,7 @@ class App(BaseApp):
         cfg = self.tgt_loader.get_config()
         try:
             if cfg["type"] == "file" and cfg["path"]:
-                return read_header_file(cfg["path"], cfg["sheet"], cfg["header"])
+                return self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
             elif cfg["type"] == "open" and cfg["book"]:
                 return read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
         except: pass
@@ -2201,9 +2247,11 @@ class App(BaseApp):
         return []
 
     def _clear_unique_cache(self):
-        """Clears the unique values cache (called when file/sheet config change)"""
+        """Clears all caches (called when file path, sheet, or header change)"""
         self.unique_cache = {}
-        self._log("필터 캐시가 초기화되었습니다.")
+        self.header_cache = {}
+        self.sheet_cache = {}
+        self._log("데이터 캐시가 초기화되었습니다.")
 
     # ----
     # Run
