@@ -1349,6 +1349,10 @@ class App(BaseApp):
             tk.Label(features_frame, text="• 자주 쓰는 컬럼 저장 기능", 
                     font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=30, pady=1, fill="x")
             # Combined shorter feature list
+            tk.Label(features_frame, text="• 전문가용 데이터 유무 필터 (Exists / Is Empty)", 
+                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#c0392b", anchor="w").pack(padx=30, pady=1, fill="x")
+            tk.Label(features_frame, text="• 초고속 로딩 및 대용량 최적화 (v1.0.19)", 
+                    font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=30, pady=1, fill="x")
             tk.Label(features_frame, text="• 오타 자동 보정 / 치환 설정 / 색상 강조", 
                     font=(get_system_font()[0], 10), bg="#fff3e0", fg="#34495e", anchor="w").pack(padx=30, pady=(0, 10), fill="x")
             
@@ -1670,8 +1674,8 @@ class App(BaseApp):
             price_frame.pack(fill="x", pady=(0, 12))
             
             tk.Label(price_frame, text="> 가격 안내", font=(get_system_font()[0], 12, "bold"), bg="#ecf0f1", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
-            tk.Label(price_frame, text="개인: 1년 33,000원 / 평생 132,000원 (최대 100만행)", font=(get_system_font()[0], 9), bg="#ecf0f1", fg="#34495e", anchor="w").pack(anchor="w", padx=15, pady=1)
-            tk.Label(price_frame, text="기업: 영구 180,000원 (무제한)", font=(get_system_font()[0], 9, "bold"), bg="#ecf0f1", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=(1, 10))
+            tk.Label(price_frame, text="개인(1PC): 1년 3.3만 / 평생 13.2만 (최대 100만행)", font=(get_system_font()[0], 9), bg="#ecf0f1", fg="#34495e", anchor="w").pack(anchor="w", padx=15, pady=1)
+            tk.Label(price_frame, text="기업(1PC): 영구 180,000원 (무제한)", font=(get_system_font()[0], 9, "bold"), bg="#ecf0f1", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=(1, 10))
             
             # Section 2: Payment/Donation Account
             payment_frame = tk.Frame(container, bg="#e8f5e9", relief="solid", borderwidth=1)
@@ -1701,7 +1705,7 @@ class App(BaseApp):
             contact_frame.pack(fill="x", pady=(0, 20))
             
             tk.Label(contact_frame, text="> 커스터마이징 문의", font=(get_system_font()[0], 12, "bold"), bg="#fff3e0", fg="#2c3e50").pack(anchor="w", padx=12, pady=(10, 4))
-            tk.Label(contact_frame, text="이메일: bough38@gmail.com", font=(get_system_font()[0], 10, "bold"), bg="#fff3e0", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=1)
+            tk.Label(contact_frame, text="라이선스 구매/커스터마이징: bough38@gmail.com", font=(get_system_font()[0], 10, "bold"), bg="#fff3e0", fg="#c0392b", anchor="w").pack(anchor="w", padx=15, pady=1)
             tk.Label(contact_frame, text="디스코드: bough38 (세은아빠)", font=(get_system_font()[0], 10, "bold"), bg="#fff3e0", fg="#2980b9", anchor="w").pack(anchor="w", padx=15, pady=(1, 10))
             
             def copy_email():
