@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Match v2.0 | 사용자 마스터 가이드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --text: #334155;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: -40px auto 60px;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .alert {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border: 1px solid #dcfce7;
+            color: #166534;
+        }
+
+        h2 {
+            border-left: 5px solid var(--primary);
+            padding-left: 15px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--primary);
+        }
+
+        .steps {
+            padding-left: 20px;
+        }
+
+        .steps li {
+            margin-bottom: 15px;
+        }
+
+        .img-container {
+            text-align: center;
+            margin: 24px 0;
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .img-container img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .footer {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+            padding-bottom: 40px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Easy Match v2.0 가이드</h1>
+        <p>함수 없이 1분 만에 끝내는 스마트 데이터 매칭</p>
+    </div>
+
+    <div class="container">
+        <!-- 🚨 필수: 윈도우 보안 경고 해결법 -->
+        <div class="card" style="border-top: 6px solid var(--danger);">
+            <h2 style="color: var(--danger); border-left:none; padding-left:0;">🛡️ 윈도우 보안 경고 시 필독</h2>
+            <p>프로그램 실행 시 <strong>"Windows의 PC 보호"</strong> 또는 <strong>"게시자를 확인할 수 없습니다"</strong>라는 파란색 창이 뜨나요? 이는 검증되지
+                않은 개인 개발자 앱에 대한 윈도우의 기본 방어 기제입니다.</p>
+
+            <div class="alert alert-warning">
+                <div>
+                    <strong>해결 방법:</strong><br>
+                    1단계: 파란색 경고창에서 <strong>[추가 정보]</strong> 글자를 클릭하세요.<br>
+                    2단계: 하단에 나타나는 <strong>[실행]</strong> 버튼을 누르면 정상적으로 시작됩니다.
+                </div>
+            </div>
+        </div>
+
+        <!-- ✨ 꿀팁: 열려있는 엑셀 인식 -->
+        <div class="card" style="border-top: 6px solid var(--success);">
+            <h2 style="color: var(--success); border-left:none; padding-left:0;">🚀 업무가 3배 빨라지는 꿀팁</h2>
+            <p>Easy Match는 <strong>"현재 열려있는 엑셀 인식"</strong> 기능을 지원합니다.</p>
+            <ul class="steps">
+                <li>파일을 매번 폴더에서 찾지 마세요.</li>
+                <li>작업 중인 엑셀 파일을 그냥 열어둔 상태에서 Easy Match를 켭니다.</li>
+                <li><strong>'현재 열려있는 워크북 인식'</strong> 메뉴를 클릭하면, 불러온 파일 리스트가 즉시 나타납니다.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>01. 기본 사용법</h2>
+            <ol class="steps">
+                <li><strong>파일 로드</strong>: 기준 파일(Source)과 대상 파일(Target)을 드래그하여 넣습니다.</li>
+                <li><strong>항목 선택</strong>: 두 파일이 공통으로 가진 항목(사번, 이름, ID 등)을 매칭 키로 지정합니다.</li>
+                <li><strong>데이터 체크</strong>: 대상 파일에서 기준 파일로 가져오고 싶은 열(전화번호, 주소 등)을 선택합니다.</li>
+                <li><strong>매칭 시작</strong>: 하단의 버튼을 클릭하면 즉시 데이터가 결합됩니다.</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h2>02. 자주 묻는 질문 (FAQ)</h2>
+            <h3>Q: 데이터 매칭이 0건으로 나옵니다.</h3>
+            <p>A: 매칭 키로 설정한 데이터가 서로 정확히 일치하는지 확인해 주세요. (예: 공백 포함 여부 등) 이지매치는 자동 공백 제거 기능을 제공하므로 대부분의 경우 문제없이 작동합니다.</p>
+
+            <h3>Q: 개인 정보가 유출될 걱정은 없나요?</h3>
+            <p>A: 이지매치는 모든 작업을 고객님의 **내부 PC**에서만 수행합니다. 어떠한 데이터도 외부 서버로 전송하지 않으므로 안심하고 사용하셔도 됩니다.</p>
+
+            <h3>Q: 맥(macOS)에서도 사용 가능한가요?</h3>
+            <p>A: 네, 전용 Mac 버전을 설치하신 후 '마우스 우클릭 -> 열기'를 통해 동일하게 사용하실 수 있습니다.</p>
+        </div>
+
+        <div class="footer">
+            © 2026 Easy Match 개발팀 | 업무 효율의 새 기준
+        </div>
+    </div>
+
+</body>
+
+</html>
