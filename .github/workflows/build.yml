@@ -126,6 +126,8 @@ jobs:
           path: ./artifacts
 
       - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
           files: |
             ./artifacts/ExcelMatcher-Windows.zip
             ./artifacts/EasyMatch-macOS.zip
