@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_NAME="ExcelMatcher_v1.0"
+APP_NAME="ExcelMatcher_v1.0.0"
 
 echo "[BUILD] $APP_NAME macOS 빌드 시작..."
 

@@ -23,7 +23,7 @@ REM --hidden-import: ensure dependencies are included
 
 echo [BUILD] PyInstaller 실행 중...
 pyinstaller --noconfirm --onefile --windowed ^
-    --name "EasyMatch_v1.0" ^
+    --name "EasyMatch_v1.0.0" ^
     --hidden-import "pandas" ^
     --hidden-import "xlwings" ^
     --hidden-import "openpyxl" ^
