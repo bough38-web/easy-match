@@ -122,6 +122,30 @@
         iframe.active {
             display: block;
         }
+
+        .download-btn {
+            margin: 20px 20px 0 20px;
+            padding: 12px;
+            background: #2563eb;
+            /* Strong blue */
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            display: block;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: transform 0.1s;
+        }
+
+        .download-btn:hover {
+            background: #1d4ed8;
+            transform: translateY(-2px);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 
@@ -129,6 +153,9 @@
 
     <div class="sidebar">
         <div class="brand">Easy Match Studio</div>
+        <a href="https://github.com/bough38-web/easy-match/releases/tag/v1.0.6" target="_blank" class="download-btn">
+            📥 Download v1.0.6
+        </a>
         <div class="menu">
             <div class="menu-item active" onclick="showTab('market')">
                 <span>🛍️</span> 판매 페이지 (Sales)
@@ -144,7 +171,7 @@
             </div>
         </div>
         <div class="footer">
-            v1.0.0 Integrated View<br>
+            v1.0.6 Integrated View<br>
             Updated: 2026.02.17
         </div>
     </div>
