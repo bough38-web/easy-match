@@ -1,5 +1,8 @@
 import socket
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 import threading
 import json
 import logging
@@ -12,6 +15,10 @@ def report_usage_status(webhook_url):
     """
     if not webhook_url:
         logging.info("Discord Webhook URL not provided. Skipping status report.")
+        return
+
+    if requests is None:
+        logging.error("Requests module not found. Skipping status report.")
         return
 
     def _task():
