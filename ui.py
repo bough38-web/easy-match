@@ -449,9 +449,10 @@ class ReplacementEditor(tk.Toplevel):
 # Grid Check List (Moved from below to allow inheritance)
 # -------------------------
 class GridCheckList(ttk.Frame):
-    def __init__(self, master, columns=4, height=300):
+    def __init__(self, master, columns=4, height=300, bg_color="white"):
         super().__init__(master)
         self.columns = columns
+        self.bg_color = bg_color
         self.vars: dict[str, tk.BooleanVar] = {}
 
         top = ttk.Frame(self)
@@ -463,9 +464,9 @@ class GridCheckList(ttk.Frame):
         self.search_timer = None
         ttk.Button(top, text="지우기", width=6, command=self._clear).pack(side="left", padx=4)
 
-        self.canvas = tk.Canvas(self, height=height, bg="white", highlightthickness=0)
+        self.canvas = tk.Canvas(self, height=height, bg=self.bg_color, highlightthickness=0)
         sb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.inner = ttk.Frame(self.canvas)
+        self.inner = tk.Frame(self.canvas, bg=self.bg_color) # Use tk.Frame for better color control
         self.inner_id = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
 
         self.canvas.configure(yscrollcommand=sb.set)
@@ -498,33 +499,39 @@ class GridCheckList(ttk.Frame):
         display_items = items[:MAX_ITEMS]
         
         if not display_items:
-            ttk.Label(self.inner, text="(데이터 없음)").pack()
+            ttk.Label(self.inner, text="(데이터 없음)", background=self.bg_color).pack()
             return
-            
-        # Fast batch creation: withdraw window updates during child creation
-        self.inner.pack_forget() 
-        
-        for idx, it in enumerate(display_items):
-            if it not in self.vars:
-                self.vars[it] = tk.BooleanVar(value=False)
-                
-            # Use tk.Checkbutton for significantly better PERFORMANCE than ttk in large lists
-            cb = tk.Checkbutton(self.inner, text=it, variable=self.vars[it], 
-                                bg="white", activebackground="white", selectcolor="white",
-                                font=(get_system_font()[0], 10))
-            cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=1)
-            
-        self.inner.pack(fill="both", expand=True)
-            
-        # Show warning if truncated
-        if len(items) > MAX_ITEMS:
-            remain = len(items) - MAX_ITEMS
-            msg = f"...외 {remain}개 항목 (검색하여 찾으세요)"
-            lbl = ttk.Label(self.inner, text=msg, foreground="gray", font=(get_system_font()[0], 9))
-            lbl.grid(row=(len(display_items) // self.columns) + 1, column=0, columnspan=self.columns, sticky="w", padx=5, pady=5)
 
-        for i in range(self.columns):
-            self.inner.columnconfigure(i, weight=1)
+        # Optimization: Batch create in idle time to keep UI responsive
+        def _do_render():
+            if not self.inner.winfo_exists(): return
+            
+            # Fast batch creation: withdraw window updates during child creation
+            self.inner.pack_forget() 
+            
+            for idx, it in enumerate(display_items):
+                if it not in self.vars:
+                    self.vars[it] = tk.BooleanVar(value=False)
+                    
+                # Use tk.Checkbutton for significantly better PERFORMANCE than ttk in large lists
+                cb = tk.Checkbutton(self.inner, text=it, variable=self.vars[it], 
+                                    bg=self.bg_color, activebackground=self.bg_color, selectcolor="white",
+                                    font=(get_system_font()[0], 10))
+                cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=1)
+                
+            self.inner.pack(fill="both", expand=True)
+                
+            # Show warning if truncated
+            if len(items) > MAX_ITEMS:
+                remain = len(items) - MAX_ITEMS
+                msg = f"...외 {remain}개 항목 (검색하여 찾으세요)"
+                lbl = tk.Label(self.inner, text=msg, foreground="gray", bg=self.bg_color, font=(get_system_font()[0], 9))
+                lbl.grid(row=(len(display_items) // self.columns) + 1, column=0, columnspan=self.columns, sticky="w", padx=5, pady=5)
+
+            for i in range(self.columns):
+                self.inner.columnconfigure(i, weight=1)
+
+        self.after_idle(_do_render)
 
     def checked(self):
         return [k for k, v in self.vars.items() if v.get()]
@@ -966,8 +973,9 @@ class FileLoaderFrame(ttk.LabelFrame):
 
 
 class ColumnSelectorFrame(ttk.LabelFrame):
-    def __init__(self, master, title, height=150):
+    def __init__(self, master, title, height=150, bg_color="white"):
         super().__init__(master, text=title, padding=5)
+        self.bg_color = bg_color
         
         # Tools (Select All/None)
         tools = ttk.Frame(self)
@@ -977,7 +985,7 @@ class ColumnSelectorFrame(ttk.LabelFrame):
         ttk.Button(tools, text="[X] 선택 해제", command=self.uncheck_all, width=12).pack(side="left", padx=(2, 0))
         
         # List
-        self.list = GridCheckList(self, columns=3, height=height)
+        self.list = GridCheckList(self, columns=3, height=height, bg_color=self.bg_color)
         self.list.pack(fill="both", expand=True)
         
     def check_all(self):
@@ -1631,8 +1639,8 @@ class App(BaseApp):
         btn_save_sheet.pack(side="right", padx=2)
         ToolTip(btn_save_sheet, "현재 설정된 조건(키, 대상 컬럼)을 기준 데이터 파일에 새로운 시트로 저장합니다")
 
-        # Left: Match Key Selector
-        self.match_key_selector = ColumnSelectorFrame(left_panel, "매칭 키 (Key) 선택 - 기준 데이터")
+        # Left: Match Key Selector - Use Light Blueish Background
+        self.match_key_selector = ColumnSelectorFrame(left_panel, "매칭 키 (Key) 선택 - 기준 데이터", bg_color="#f0f7ff")
         self.match_key_selector.pack(side="bottom", fill="both", expand=True)
 
         # Right Container (Presets + Target Columns)
@@ -1653,8 +1661,8 @@ class App(BaseApp):
         ttk.Button(preset_frame, text="저장", command=self.save_preset, width=5).pack(side="left", padx=2)
         ttk.Button(preset_frame, text="삭제", command=self.delete_preset, width=5).pack(side="left", padx=2)
 
-        # Right: Target Column Selector
-        self.target_col_selector = ColumnSelectorFrame(right_panel, "가져올 컬럼 선택 - 대상 데이터")
+        # Right: Target Column Selector - Use Light Greenish Background
+        self.target_col_selector = ColumnSelectorFrame(right_panel, "가져올 컬럼 선택 - 대상 데이터", bg_color="#f0fff4")
         self.target_col_selector.pack(side="bottom", fill="both", expand=True)
         
         # Force menu update
