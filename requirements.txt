@@ -6,3 +6,5 @@ xlwings>=0.30
 rapidfuzz>=3.0
 pyinstaller>=6.0
 tkinterdnd2>=0.3.0
+tkinterdnd2>=0.3.0
+requests>=2.0

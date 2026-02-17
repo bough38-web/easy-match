@@ -13,6 +13,12 @@ try:
 except ImportError as e:
     print(f"[ExcelMatcher] Critical: PIL import failed in main: {e}")
 
+# [Hotfix v1.0.1] Force 'requests' inclusion for PyInstaller
+try:
+    import requests
+except ImportError:
+    pass
+
 # -----------------------------
 # 터미널 로그 유틸
 # -----------------------------
