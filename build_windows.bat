@@ -28,6 +28,7 @@ pyinstaller --noconfirm --onefile --windowed ^
     --hidden-import "xlwings" ^
     --hidden-import "openpyxl" ^
     --hidden-import "xlsxwriter" ^
+    --hidden-import "requests" ^
     --collect-all "Pillow" ^
     --add-data "assets;assets" ^
     --add-data "usage_guide.html;." ^

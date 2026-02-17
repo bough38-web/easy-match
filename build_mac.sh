@@ -29,6 +29,7 @@ pyinstaller --noconfirm --windowed --clean \
     --hidden-import "xlwings" \
     --hidden-import "openpyxl" \
     --hidden-import "xlsxwriter" \
+    --hidden-import "requests" \
     --collect-all "Pillow" \
     --exclude-module "PyQt5" \
     --exclude-module "PyQt6" \
