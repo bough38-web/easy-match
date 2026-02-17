@@ -479,21 +479,39 @@ class GridCheckList(ttk.Frame):
     def set_items(self, items):
         self.all_items = list(items or [])
         self.vars.clear()
-        for w in self.inner.winfo_children():
-            w.destroy()
-        if not self.all_items:
-            ttk.Label(self.inner, text="(데이터 없음)").pack()
-            return
+        # Initialize vars for ALL items so get_selected works even if not rendered
         for it in self.all_items:
             self.vars[it] = tk.BooleanVar(value=False)
         self._render(self.all_items)
 
     def _render(self, items):
+        # Clear current widgets
         for w in self.inner.winfo_children():
             w.destroy()
-        for idx, it in enumerate(items):
+            
+        # LIMIT RENDERING for performance
+        MAX_ITEMS = 300
+        display_items = items[:MAX_ITEMS]
+        
+        if not display_items:
+            ttk.Label(self.inner, text="(데이터 없음)").pack()
+            return
+            
+        for idx, it in enumerate(display_items):
+            # Ensure var exists (should be done in set_items, but check for safety)
+            if it not in self.vars:
+                self.vars[it] = tk.BooleanVar(value=False)
+                
             cb = ttk.Checkbutton(self.inner, text=it, variable=self.vars[it])
             cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=2)
+            
+        # Show warning if truncated
+        if len(items) > MAX_ITEMS:
+            remain = len(items) - MAX_ITEMS
+            msg = f"...외 {remain}개 항목 (검색하여 찾으세요)"
+            lbl = ttk.Label(self.inner, text=msg, foreground="gray", font=(get_system_font()[0], 9))
+            lbl.grid(row=(len(display_items) // self.columns) + 1, column=0, columnspan=self.columns, sticky="w", padx=5, pady=5)
+
         for i in range(self.columns):
             self.inner.columnconfigure(i, weight=1)
 
@@ -523,7 +541,12 @@ class GridCheckList(ttk.Frame):
 
     def _filter(self):
         q = (self.q.get() or "").strip().lower()
-        self._render([it for it in self.all_items if q in it.lower()] if q else self.all_items)
+        if not q:
+            self._render(self.all_items)
+            return
+            
+        filtered = [it for it in self.all_items if q in it.lower()]
+        self._render(filtered)
 
 
 class MultiSelectListBox(GridCheckList):
@@ -627,16 +650,25 @@ class MultiFilterRow:
         t.start()
 
     def _update_vals(self, vals, error=False):
-        self.btn_load.state(["!disabled"])
-        if error:
-            self.cb_val.set("(오류)")
-        else:
-            self.cb_val["values"] = vals
-            if vals:
-                self.cb_val.set(vals[0])
-                self.cb_val.event_generate('<Button-1>') # Open dropdown if possible, or just set
-            else:
+        try:
+            if not self.frame.winfo_exists(): return
+            self.btn_load.state(["!disabled"])
+            
+            if error:
+                self.cb_val.set("(오류 발생)")
+                self.cb_val["values"] = []
+            elif not vals:
                 self.cb_val.set("(값 없음)")
+                self.cb_val["values"] = []
+            else:
+                self.cb_val["values"] = vals
+                if len(vals) > 0:
+                    self.cb_val.set(vals[0])
+                    # Remove flaky event_generate which might confuse the UI focus
+                    # Instead, just set the value. User can click if they want to see more.
+                    self.cb_val.current(0) 
+        except Exception as e:
+            print(f"UI Update Error: {e}")
 
     def get_config(self):
         return {
