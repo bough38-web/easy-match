@@ -140,14 +140,20 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
                 # Pre-fetch lowercase check set for speed
                 excluded = {'nan', 'none', 'null', ''}
                 
-                # Iterate all rows AFTER header
-                for row in ws.iter_rows(min_row=header_row+1, values_only=True):
-                    if col_idx < len(row):
-                        val = row[col_idx]
+                # OPTIMIZED LOOP: Minimize object creation and string calls for 1M rows
+                for row_vals in ws.iter_rows(min_row=header_row+1, values_only=True):
+                    if col_idx < len(row_vals):
+                        val = row_vals[col_idx]
                         if val is not None:
-                            s_val = str(val).strip()
-                            if s_val and s_val.lower() not in excluded:
-                                unique_set.add(s_val)
+                            # Faster check: skip if it's already a string and likely not empty
+                            if isinstance(val, str):
+                                s_val = val.strip()
+                                if s_val and s_val.lower() not in excluded:
+                                    unique_set.add(s_val)
+                            else:
+                                s_val = str(val).strip()
+                                if s_val and s_val.lower() not in excluded:
+                                    unique_set.add(s_val)
                 
                 wb.close()
                 unique_list = sorted(list(unique_set))

@@ -448,14 +448,14 @@ class ReplacementEditor(tk.Toplevel):
 # -------------------------
 # Grid Check List (Moved from below to allow inheritance)
 # -------------------------
-class GridCheckList(ttk.Frame):
+class GridCheckList(tk.Frame): # Switch to tk.Frame for consistent background coloring
     def __init__(self, master, columns=4, height=300, bg_color="white"):
-        super().__init__(master)
+        super().__init__(master, bg=bg_color)
         self.columns = columns
         self.bg_color = bg_color
         self.vars: dict[str, tk.BooleanVar] = {}
 
-        top = ttk.Frame(self)
+        top = tk.Frame(self, bg=bg_color)
         top.pack(fill="x", pady=(0, 4))
         self.q = tk.StringVar()
         ent = ttk.Entry(top, textvariable=self.q)
@@ -499,7 +499,7 @@ class GridCheckList(ttk.Frame):
         display_items = items[:MAX_ITEMS]
         
         if not display_items:
-            ttk.Label(self.inner, text="(데이터 없음)", background=self.bg_color).pack()
+            tk.Label(self.inner, text="(데이터 없음)", bg=self.bg_color).pack()
             return
 
         # Optimization: Batch create in idle time to keep UI responsive
@@ -972,17 +972,17 @@ class FileLoaderFrame(ttk.LabelFrame):
         }
 
 
-class ColumnSelectorFrame(ttk.LabelFrame):
+class ColumnSelectorFrame(tk.LabelFrame): # Switch to tk.LabelFrame for consistent background
     def __init__(self, master, title, height=150, bg_color="white"):
-        super().__init__(master, text=title, padding=5)
+        super().__init__(master, text=title, bg=bg_color, padx=5, pady=5)
         self.bg_color = bg_color
         
         # Tools (Select All/None)
-        tools = ttk.Frame(self)
+        tools = tk.Frame(self, bg=bg_color)
         tools.pack(fill="x", pady=(0, 5))
         
-        ttk.Button(tools, text="[V] 전체 선택", command=self.check_all, width=12).pack(side="left", padx=(0, 2))
-        ttk.Button(tools, text="[X] 선택 해제", command=self.uncheck_all, width=12).pack(side="left", padx=(2, 0))
+        tk.Button(tools, text="[V] 전체 선택", command=self.check_all, width=12, bg=bg_color).pack(side="left", padx=(0, 2))
+        tk.Button(tools, text="[X] 선택 해제", command=self.uncheck_all, width=12, bg=bg_color).pack(side="left", padx=(2, 0))
         
         # List
         self.list = GridCheckList(self, columns=3, height=height, bg_color=self.bg_color)
