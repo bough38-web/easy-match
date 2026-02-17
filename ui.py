@@ -969,17 +969,42 @@ class TargetAdvFilterRow(ttk.Frame):
         self.cb_val.set("(값 선택)")
         
         # Remove button
-        ttk.Button(self, text="-", width=3, command=on_remove).pack(side="left", padx=2)
+        btn_rem = ttk.Button(self, text="-", width=3, command=on_remove)
+        btn_rem.pack(side="left", padx=2)
+
+        # Load Values Button (Lazy Load)
+        self.btn_load = ttk.Button(self, text="▼", width=2, command=self._load_values_async)
+        self.btn_load.pack(side="left", padx=(2, 0))
 
     def _on_col_change(self, event=None):
+        # Reset value when column changes
+        self.cb_val.set("(값 선택)")
+        self.cb_val["values"] = []
+
+    def _load_values_async(self):
         col = self.col_var.get()
-        if not col: return
+        if not col or not self.on_fetch_vals: return
         
-        # Fetch unique values via callback
-        vals = self.on_fetch_vals(col)
-        self.cb_val["values"] = vals
-        if vals: self.cb_val.current(0)
-        else: self.cb_val.set("(데이터 없음)")
+        self.cb_val.set("Loading...")
+        self.btn_load.state(["disabled"])
+        
+        import threading
+        def _task():
+            try:
+                vals = self.on_fetch_vals(col)
+                def _update():
+                    if not self.winfo_exists(): return
+                    self.btn_load.state(["!disabled"])
+                    self.cb_val["values"] = vals
+                    if vals: self.cb_val.current(0)
+                    else: self.cb_val.set("(데이터 없음)")
+                self.after(0, _update)
+            except Exception as e:
+                print(f"Error fetching values: {e}")
+                self.after(0, lambda: self.btn_load.state(["!disabled"]))
+
+        t = threading.Thread(target=_task, daemon=True)
+        t.start()
 
     def get_filter(self):
         col = self.col_var.get()
