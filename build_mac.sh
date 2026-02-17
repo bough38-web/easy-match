@@ -58,7 +58,7 @@ pyinstaller --noconfirm --windowed --clean \
 
 if [ $? -eq 0 ]; then
     echo "[성공] 빌드 완료!"
-    echo "앱 번들: dist/ExcelMatcher_v1.0.9.app"
+    echo "앱 번들: dist/ExcelMatcher_v1.0.10.app"
     
     # Optional: Create DMG (requires create-dmg)
     # echo "You can now package dist/$APP_NAME.app into a DMG."
