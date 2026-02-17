@@ -587,6 +587,10 @@ class MultiFilterRow:
         btn_rem = ttk.Button(self.frame, text="X", width=2, command=lambda: on_remove(self))
         btn_rem.pack(side="left")
 
+        # Load Values Button (Lazy Load)
+        self.btn_load = ttk.Button(self.frame, text="▼", width=2, command=self._load_values_async)
+        self.btn_load.pack(side="left", padx=(2, 0))
+
         self.refresh_cols()
 
     def refresh_cols(self):
@@ -594,15 +598,45 @@ class MultiFilterRow:
         self.cb_col["values"] = cols
         if cols and not self.col_var.get():
             self.cb_col.current(0)
-            self._on_col_change()
+            # Remove auto-fetch to prevent freeze
+            # self._on_col_change() 
 
     def _on_col_change(self, event=None):
+        # Clear values on column change, but do NOT auto-fetch
+        self.cb_val.set("")
+        self.cb_val["values"] = []
+
+    def _load_values_async(self):
         col = self.col_var.get()
         if not col or not self.fetch_vals: return
-        vals = self.fetch_vals(col)
-        self.cb_val["values"] = vals
-        if vals:
-             self.cb_val.current(0)
+        
+        self.cb_val.set("Loading...")
+        self.btn_load.state(["disabled"])
+        
+        import threading
+        def _task():
+            try:
+                vals = self.fetch_vals(col)
+                # Schedule UI update on main thread
+                self.frame.after(0, lambda: self._update_vals(vals))
+            except Exception as e:
+                print(f"Error fetching values: {e}")
+                self.frame.after(0, lambda: self._update_vals([], error=True))
+
+        t = threading.Thread(target=_task, daemon=True)
+        t.start()
+
+    def _update_vals(self, vals, error=False):
+        self.btn_load.state(["!disabled"])
+        if error:
+            self.cb_val.set("(오류)")
+        else:
+            self.cb_val["values"] = vals
+            if vals:
+                self.cb_val.set(vals[0])
+                self.cb_val.event_generate('<Button-1>') # Open dropdown if possible, or just set
+            else:
+                self.cb_val.set("(값 없음)")
 
     def get_config(self):
         return {
