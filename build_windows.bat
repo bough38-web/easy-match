@@ -21,9 +21,12 @@ REM --name: output filename
 REM --add-data: include additional files
 REM --hidden-import: ensure dependencies are included
 
-echo [BUILD] PyInstaller 실행 중...
+
+
+REM Build using CLI arguments (avoiding Spec file Unicode path issues)
+echo [BUILD] PyInstaller 실행 중 (CLI Mode)...
 pyinstaller --noconfirm --onefile --windowed ^
-    --name "EasyMatch_v1.0.0" ^
+    --name "ExcelMatcher" ^
     --hidden-import "pandas" ^
     --hidden-import "xlwings" ^
     --hidden-import "openpyxl" ^

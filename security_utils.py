@@ -5,7 +5,13 @@ import platform
 import subprocess
 import json
 import threading
-import requests
+import threading
+
+# [Safe Import] Prevent crash if requests is missing
+try:
+    import requests
+except ImportError:
+    requests = None
 
 def get_hwid():
     """
@@ -43,7 +49,8 @@ def send_usage_log(license_info, action="Launch"):
     # Note: The user can provide a real webhook URL later. 
     # For now, we use a placeholder or a default tracking endpoint if provided.
     WEBHOOK_URL = os.environ.get("EM_TRACKING_WEBHOOK", "")
-    if not WEBHOOK_URL:
+    WEBHOOK_URL = os.environ.get("EM_TRACKING_WEBHOOK", "")
+    if not WEBHOOK_URL or requests is None:
         return
 
     def _threaded_send():
@@ -76,6 +83,9 @@ def check_remote_block(license_key=None):
     """
     from commercial_config import BLACKLIST_URL
     if not BLACKLIST_URL or "githubusercontent.com/username" in BLACKLIST_URL:
+        return False, ""
+
+    if requests is None:
         return False, ""
 
     try:

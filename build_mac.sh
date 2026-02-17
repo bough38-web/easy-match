@@ -20,11 +20,19 @@ rm -rf dist build *.spec
 # but --onefile is cleaner for distribution if not signing. 
 # Let's use --windowed (which implies .app)
 
-echo "[BUILD] PyInstaller 실행 중..."
+# 0. Pre-check & Install Critical Dependencies
+echo "[SETUP] Installing critical dependencies..."
+pip install requests --upgrade
+pip install pyinstaller --upgrade
+
+# Build using CLI arguments (avoiding Spec file Unicode path issues)
+echo "[BUILD] PyInstaller 실행 중 (CLI Mode)..."
 pyinstaller --noconfirm --windowed --clean \
-    --name "$APP_NAME" \
+    --name "ExcelMatcher_v1.0.4" \
     --add-data "usage_guide.html:." \
     --add-data "assets:assets" \
+    --add-data "presets.json:." \
+    --add-data "replacements.json:." \
     --hidden-import "pandas" \
     --hidden-import "xlwings" \
     --hidden-import "openpyxl" \
@@ -46,7 +54,7 @@ pyinstaller --noconfirm --windowed --clean \
 
 if [ $? -eq 0 ]; then
     echo "[성공] 빌드 완료!"
-    echo "앱 번들: dist/$APP_NAME.app"
+    echo "앱 번들: dist/ExcelMatcher_v1.0.4.app"
     
     # Optional: Create DMG (requires create-dmg)
     # echo "You can now package dist/$APP_NAME.app into a DMG."

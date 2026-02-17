@@ -26,12 +26,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller requests
 
       - name: Build Windows EXE
         run: |
           pyinstaller --noconfirm --onefile --windowed `
-            --name "EasyMatch_v1.0" `
+            --name "ExcelMatcher" `
             --hidden-import "pandas" `
             --hidden-import "xlwings" `
             --hidden-import "openpyxl" `
@@ -46,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: EasyMatch-Windows
-          path: dist/EasyMatch_v1.0.exe
+          path: dist/ExcelMatcher.exe
           retention-days: 30
 
   build-macos:
@@ -70,7 +70,7 @@ jobs:
       - name: Build macOS App
         run: |
           pyinstaller --noconfirm --onefile --windowed \
-            --name "EasyMatch" \
+            --name "ExcelMatcher_v1.0.4" \
             --hidden-import "pandas" \
             --hidden-import "xlwings" \
             --hidden-import "openpyxl" \
@@ -93,7 +93,7 @@ jobs:
 
           # For now, just zip the app
           cd dist
-          zip -r EasyMatch-macOS.zip EasyMatch.app
+          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.4.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
@@ -124,13 +124,13 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./artifacts/EasyMatch_v1.0.exe
+            ./artifacts/ExcelMatcher.exe
             ./artifacts/EasyMatch-macOS.zip
           body: |
             ## Easy Match v1.0 Release
 
             ### Windows
-            - Download `EasyMatch_v1.0.exe`
+            - Download `ExcelMatcher.exe`
             - No installation required, just run!
 
             ### macOS
