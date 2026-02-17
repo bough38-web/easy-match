@@ -605,22 +605,8 @@ class MultiFilterRow:
         self.cb_val = ttk.Combobox(self.frame, textvariable=self.val_var, state="normal", width=12)
         self.cb_val.pack(side="left", padx=(0, 5))
         self.cb_val.set("(값 선택)")
-
-    def _on_op_change(self, event=None):
-        op = self.op_var.get()
-        if op in ["Exist", "Not Exist"]:
-            self.cb_val.set("---")
-            self.cb_val.state(["disabled"])
-            self.btn_load.state(["disabled"])
-        else:
-            if self.cb_val.get() == "---":
-                self.cb_val.set("")
-            self.cb_val.state(["!disabled"])
-            self.btn_load.state(["!disabled"])
         
-        self.refresh_cols()
-
-    def refresh_cols(self):
+        # Remove
         btn_rem = ttk.Button(self.frame, text="X", width=2, command=lambda: on_remove(self))
         btn_rem.pack(side="left")
 
@@ -629,6 +615,10 @@ class MultiFilterRow:
         self.btn_load.pack(side="left", padx=(2, 0))
 
         self.refresh_cols()
+
+    def _on_op_change(self, event=None):
+        # Kept for potential logic, though currently unbound
+        pass
 
     def refresh_cols(self):
         cols = self.get_cols()
