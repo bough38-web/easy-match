@@ -70,7 +70,7 @@ jobs:
       - name: Build macOS App
         run: |
           pyinstaller --noconfirm --onefile --windowed \
-            --name "ExcelMatcher_v1.0.8" \
+            --name "ExcelMatcher_v1.0.9" \
             --hidden-import "pandas" \
             --hidden-import "xlwings" \
             --hidden-import "openpyxl" \
