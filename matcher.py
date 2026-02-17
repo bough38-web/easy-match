@@ -150,6 +150,12 @@ def match_universal(
                     elif op == "<=": res_df = res_df[col_series <= f_val]
                     elif op == ">": res_df = res_df[col_series > f_val]
                     elif op == "<": res_df = res_df[col_series < f_val]
+                    elif op == "Exist":
+                        # Not null and not empty string
+                        res_df = res_df[res_df[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).notnull()]
+                    elif op == "Not Exist":
+                        # Is null or empty string
+                        res_df = res_df[res_df[col].astype(str).str.strip().replace(['nan','NaN','None',''], None).isnull()]
                     
                     _debug_log(f"[Filter] {label} ({col} {op} {val})")
                 except Exception as fe:
