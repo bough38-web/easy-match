@@ -74,6 +74,35 @@ def read_header_file(file_path, sheet_name=0, header_row=1):
     except:
         return []
 
+def read_table_file(file_path, sheet_name, header_row, usecols):
+    ext=os.path.splitext(file_path)[1].lower()
+    header_idx=header_row-1
+    if isinstance(usecols,str): usecols=[usecols]
+    usecols=[str(c).strip() for c in (usecols or [])]
+    if ext in ['.xls','.xlsx']:
+        df=pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx)
+    elif ext=='.csv':
+        df=None
+        for enc in ['cp949','utf-8','euc-kr']:
+            try:
+                sep=_sniff_csv(file_path, enc)
+                df=pd.read_csv(file_path, header=header_idx, encoding=enc, sep=sep, engine='python')
+                break
+            except: 
+                continue
+        if df is None:
+            raise Exception("CSV 파일 인코딩/구분자를 인식하지 못했습니다.")
+    else:
+        return pd.DataFrame()
+    df.columns=[str(c).strip() for c in df.columns]
+    existing=[c for c in usecols if c in df.columns]
+    missing=[c for c in usecols if c not in df.columns]
+    df=df[existing] if existing else pd.DataFrame()
+    for c in missing: df[c]=""
+    df=df.reindex(columns=usecols, fill_value="")
+    df=df.astype(str).replace(['nan','NaN','None','<NA>'],'')
+    return df
+
 def get_unique_values(file_path, sheet_name, header_row, column_name):
     """
     Returns a sorted list of unique entries for a specific column.
