@@ -75,7 +75,7 @@ jobs:
       - name: Build macOS App
         run: |
           pyinstaller --noconfirm --onefile --windowed \
-            --name "ExcelMatcher_v1.0.16" \
+            --name "ExcelMatcher_v1.0.17" \
             --hidden-import "pandas" \
             --hidden-import "xlwings" \
             --hidden-import "openpyxl" \
@@ -98,7 +98,7 @@ jobs:
 
           # For now, just zip the app
           cd dist
-          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.16.app
+          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.17.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4

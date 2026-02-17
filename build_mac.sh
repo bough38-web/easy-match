@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_NAME="ExcelMatcher_v1.0.16"
+APP_NAME="ExcelMatcher_v1.0.17"
 
 echo "[BUILD] $APP_NAME macOS 빌드 시작..."
 
@@ -29,7 +29,7 @@ pip install pyinstaller --upgrade
 # Build using CLI arguments (avoiding Spec file Unicode path issues)
 echo "[BUILD] PyInstaller 실행 중 (CLI Mode)..."
 pyinstaller --noconfirm --windowed --clean \
-    --name "ExcelMatcher_v1.0.16" \
+    --name "ExcelMatcher_v1.0.17" \
     --add-data "usage_guide.html:." \
     --add-data "assets:assets" \
     --add-data "presets.json:." \
@@ -58,7 +58,7 @@ pyinstaller --noconfirm --windowed --clean \
 
 if [ $? -eq 0 ]; then
     echo "[성공] 빌드 완료!"
-    echo "앱 번들: dist/ExcelMatcher_v1.0.16.app"
+    echo "앱 번들: dist/ExcelMatcher_v1.0.17.app"
     
     # Optional: Create DMG (requires create-dmg)
     # echo "You can now package dist/$APP_NAME.app into a DMG."
