@@ -7,6 +7,7 @@ import tkinter as tk
 import traceback
 from tkinter import ttk, filedialog, simpledialog
 from PIL import Image, ImageTk
+import threading
 
 # Try to import tkinterdnd2 for drag and drop support
 try:
@@ -1211,34 +1212,49 @@ class MultiFileDialog(tk.Toplevel):
             show_custom_alert(self, "경고", f"다음 순번 파일의 시트가 선택되지 않았습니다: {missing}", "warning")
             return
 
-        try:
-            from excel_io import read_header_file
-            
-            all_file_headers = []
-            for f in self.files:
-                h = read_header_file(f['path'], f['sheet'], f.get('header', 1))
-                all_file_headers.append(set(h))
-            
-            # Intersection of all headers
-            common_cols = set.intersection(*all_file_headers)
-            common_list = sorted(list(common_cols))
-            
-            if not common_list:
-                show_custom_alert(self, "정보", "모든 파일에서 공통으로 발견된 컬럼이 없습니다.", "info")
-                return
-                
-            dlg = BatchColumnSelectDialog(self, common_list)
-            self.wait_window(dlg)
-            
-            if dlg.result is not None:
-                # Apply result to all files
+        # Disable button and show loading
+        original_text = self.unified_btn["text"]
+        self.unified_btn["text"] = "분석 중..."
+        self.unified_btn["state"] = "disabled"
+
+        def _task():
+            try:
+                from excel_io import read_header_file
+                all_file_headers = []
                 for f in self.files:
-                    f['fetch_cols'] = dlg.result
-                self._render_file_list()
-                show_custom_alert(self, "완료", f"선택한 {len(dlg.result)}개 컬럼을 모든 파일에 적용했습니다.", "info")
+                    h = read_header_file(f['path'], f['sheet'], f.get('header', 1))
+                    all_file_headers.append(set(h))
                 
-        except Exception as e:
-            show_custom_alert(self, "오류", f"통합 컬럼 정보를 생성할 수 없습니다:\n{e}", "error")
+                # Intersection of all headers
+                common_cols = set.intersection(*all_file_headers) if all_file_headers else set()
+                common_list = sorted(list(common_cols))
+                
+                def _done():
+                    self.unified_btn["text"] = original_text
+                    self.unified_btn["state"] = "normal"
+                    
+                    if not common_list:
+                        show_custom_alert(self, "정보", "모든 파일에서 공통으로 발견된 컬럼이 없습니다.", "info")
+                        return
+                        
+                    dlg = BatchColumnSelectDialog(self, common_list)
+                    self.wait_window(dlg)
+                    
+                    if dlg.result is not None:
+                        for f in self.files:
+                            f['fetch_cols'] = dlg.result
+                        self._render_file_list()
+                        show_custom_alert(self, "완료", f"선택한 {len(dlg.result)}개 컬럼을 모든 파일에 적용했습니다.", "info")
+                
+                self.after(0, _done)
+            except Exception as e:
+                def _err():
+                    self.unified_btn["text"] = original_text
+                    self.unified_btn["state"] = "normal"
+                    show_custom_alert(self, "오류", f"통합 컬럼 정보를 생성할 수 없습니다:\n{e}", "error")
+                self.after(0, _err)
+
+        threading.Thread(target=_task, daemon=True).start()
 
     def _add_file(self):
         if len(self.files) >= 10:
@@ -1561,25 +1577,8 @@ class FileLoaderFrame(tk.Frame):
         # Allow single file pick only (Multi done via separate button)
         p = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx *.xls *.csv"), ("All", "*.*")])
         if not p: return
-        
         self.path.set(p)
-        self.multi_files = [] # Reset batch
-        self.cb_sheet["state"] = "readonly"
-        
-        try:
-            app = self.winfo_toplevel()
-            sheets = []
-            if hasattr(app, "_fetch_sheet_names"):
-                sheets = app._fetch_sheet_names(p)
-            else:
-                sheets = get_sheet_names(p)
-            
-            self.cb_sheet["values"] = sheets
-            if sheets: self.cb_sheet.current(0)
-        except Exception as e:
-            show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
-        
-        self._notify_change()
+        self._load_file_data(p)
 
     def refresh_open(self):
         if self.mode.get() != "open": return
@@ -2768,18 +2767,27 @@ class App(BaseApp):
         if not hasattr(self, 'src_loader'): return
         cfg = self.src_loader.get_config()
         if not cfg.get("sheet"): return
-        try:
-            if cfg["type"] == "file":
-                if not cfg["path"] or not os.path.exists(cfg["path"]): return
-                cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
-            else:
-                if not cfg["book"]: return
-                cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-            
-            self.match_key_selector.set_items(cols)
-            self._update_run_btn_state()
-        except Exception as e:
-            self._log(f"기준 헤더 로드 실패: {e}")
+        
+        self.match_key_selector.set_items(["(로드 중...)"])
+        
+        def _task():
+            try:
+                if cfg["type"] == "file":
+                    if not cfg["path"] or not os.path.exists(cfg["path"]): return
+                    cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
+                else:
+                    if not cfg["book"]: return
+                    cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
+                
+                def _done():
+                    self.match_key_selector.set_items(cols)
+                    self._update_run_btn_state()
+                self.after(0, _done)
+            except Exception as e:
+                def _err(): self._log(f"기준 헤더 로드 실패: {e}")
+                self.after(0, _err)
+        
+        threading.Thread(target=_task, daemon=True).start()
 
     def _load_tgt_cols(self):
         if not hasattr(self, 'tgt_loader'): return
@@ -2789,22 +2797,32 @@ class App(BaseApp):
         
         # Batch Mode Check
         if cfg["type"] == "file" and ";" in str(cfg["path"]):
-            # In batch mode, we can't easily show columns from all files.
-            # We will disable the selector or clear it.
             self.target_col_selector.set_items([])
             self._update_run_btn_state()
             return
 
-        try:
-            if cfg["type"] == "file":
-                cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
-            else:
-                cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
-            self.target_col_selector.set_items(cols)
-            self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
-            self._update_run_btn_state()
-        except Exception as e:
-            self._log(f"대상 헤더 로드 실패: {e}")
+        # If not batch
+        if not cfg.get("sheet") and cfg["type"] == "file": return
+
+        self.target_col_selector.set_items(["(로드 중...)"])
+
+        def _task():
+            try:
+                if cfg["type"] == "file":
+                    cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
+                else:
+                    cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
+                
+                def _done():
+                    self.target_col_selector.set_items(cols)
+                    self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
+                    self._update_run_btn_state()
+                self.after(0, _done)
+            except Exception as e:
+                def _err(): self._log(f"대상 헤더 로드 실패: {e}")
+                self.after(0, _err)
+
+        threading.Thread(target=_task, daemon=True).start()
 
     def _get_tgt_cols(self):
         cfg = self.tgt_loader.get_config()

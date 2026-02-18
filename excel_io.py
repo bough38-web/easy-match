@@ -1,5 +1,22 @@
-import pandas as pd, os, csv
+import pandas as pd, os, csv, zipfile
+import xml.etree.ElementTree as ET
 import openpyxl
+
+def fast_xlsx_sheets(file_path):
+    """Extremely fast sheet name extractor for .xlsx using zipfile and XML parsing."""
+    try:
+        with zipfile.ZipFile(file_path, 'r') as z:
+            with z.open('xl/workbook.xml') as f:
+                tree = ET.parse(f)
+                root = tree.getroot()
+                # Namespaces can vary, but sheet names are in 'sheet' tags under 'sheets'
+                sheets = []
+                for sheet in root.findall('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet'):
+                    name = sheet.get('name')
+                    if name: sheets.append(name)
+                return sheets
+    except:
+        return []
 
 def _sniff_csv(file_path, enc):
     # ... (existing code)
@@ -17,6 +34,8 @@ def get_sheet_names(file_path):
     try:
         ext = os.path.splitext(file_path)[1].lower()
         if ext == '.xlsx':
+            names = fast_xlsx_sheets(file_path)
+            if names: return names
             try:
                 return openpyxl.load_workbook(file_path, read_only=True, keep_links=False).sheetnames
             except:
