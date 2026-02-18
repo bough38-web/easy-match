@@ -45,6 +45,7 @@ jobs:
             --hidden-import "PIL.Image" `
             --hidden-import "PIL.ImageTk" `
             --collect-all "Pillow" `
+            --collect-all "tkinterdnd2" `
             --exclude-module "PyQt5" `
             --exclude-module "PyQt6" `
             --exclude-module "qtpy" `
@@ -62,7 +63,7 @@ jobs:
       - name: Zip Windows Build
         run: |
           cd dist
-          powershell Compress-Archive -Path ExcelMatcher -DestinationPath ExcelMatcher-Windows.zip
+          powershell Compress-Archive -Path ExcelMatcher_v1.0.0 -DestinationPath ExcelMatcher-Windows.zip
 
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
@@ -91,8 +92,12 @@ jobs:
 
       - name: Build macOS App
         run: |
-          pyinstaller --noconfirm --onefile --windowed \
+          pyinstaller --noconfirm --onedir --windowed \
             --name "ExcelMatcher_v1.0.0" \
+            --add-data "seller_assets:seller_assets" \
+            --add-data "assets:assets" \
+            --add-data "presets.json:." \
+            --add-data "replacements.json:." \
             --hidden-import "pandas" \
             --hidden-import "xlwings" \
             --hidden-import "openpyxl" \
@@ -101,10 +106,8 @@ jobs:
             --hidden-import "PIL" \
             --hidden-import "PIL.Image" \
             --hidden-import "PIL.ImageTk" \
-            --add-data "assets:assets" \
-            --add-data "presets.json:." \
-            --add-data "replacements.json:." \
-            --add-data "usage_guide.html:." \
+            --collect-all "Pillow" \
+            --collect-all "tkinterdnd2" \
             main.py
 
       - name: Create DMG (optional)
@@ -115,7 +118,7 @@ jobs:
 
           # For now, just zip the app
           cd dist
-          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.19.app
+          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.0.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
