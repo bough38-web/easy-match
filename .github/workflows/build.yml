@@ -58,7 +58,6 @@ jobs:
             --exclude-module "IPython" `
             --exclude-module "sympy" `
             --exclude-module "astropy" `
-            --icon "assets\app.ico" `
             main.py
 
       - name: Zip Windows Build
@@ -150,8 +149,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./artifacts/ExcelMatcher-Windows.zip
-            ./artifacts/EasyMatch-macOS.zip
+            dist/ExcelMatcher-Windows.zip
+            dist/EasyMatch-macOS.zip
           body: |
             ## Easy Match v1.0 Release
 

@@ -51,7 +51,7 @@ pyinstaller --noconfirm --onedir --windowed ^
     --exclude-module "IPython" ^
     --exclude-module "sympy" ^
     --exclude-module "astropy" ^
-    --icon "assets\app.ico" ^
+    --icon "assets\logo.png" ^
     main.py
 
 if %errorlevel% neq 0 (
