@@ -1,5 +1,5 @@
 name: Build Multi-Platform Executables
-# Trigger: 2026-02-19 00:05
+# Trigger: 2026-02-19 00:10
 
 on:
   push:
@@ -68,7 +68,7 @@ jobs:
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
-          name: EasyMatch-Windows
+          name: ExcelMatcher-Windows
           path: dist/ExcelMatcher-Windows.zip
           retention-days: 30
 
@@ -136,7 +136,7 @@ jobs:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: EasyMatch-Windows
+          name: ExcelMatcher-Windows
           path: ./artifacts
 
       - name: Download macOS artifact
@@ -152,7 +152,7 @@ jobs:
             ./artifacts/ExcelMatcher-Windows.zip
             ./artifacts/EasyMatch-macOS.zip
           body: |
-            ## Easy Match v1.1.3 Release
+            ## Easy Match v1.1.4 Release
 
             ### Windows
             - Download `ExcelMatcher.exe`
