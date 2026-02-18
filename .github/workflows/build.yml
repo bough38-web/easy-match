@@ -1,5 +1,5 @@
 name: Build Multi-Platform Executables
-# Trigger: 2026-02-19 00:15
+# Trigger: 2026-02-19 00:22
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
       - name: Build Windows EXE
         run: |
           pyinstaller --noconfirm --onedir --windowed `
-            --name "ExcelMatcher_v1.0.0" `
+            --name "ExcelMatcher" `
             --add-data "seller_assets;seller_assets" `
             --add-data "assets;assets" `
             --add-data "presets.json;." `
@@ -62,8 +62,7 @@ jobs:
 
       - name: Zip Windows Build
         run: |
-          cd dist
-          powershell Compress-Archive -Path ExcelMatcher_v1.0.0 -DestinationPath ExcelMatcher-Windows.zip
+          Compress-Archive -Path dist/ExcelMatcher -DestinationPath dist/ExcelMatcher-Windows.zip
 
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
@@ -93,7 +92,7 @@ jobs:
       - name: Build macOS App
         run: |
           pyinstaller --noconfirm --onedir --windowed \
-            --name "ExcelMatcher_v1.0.0" \
+            --name "ExcelMatcher" \
             --add-data "seller_assets:seller_assets" \
             --add-data "assets:assets" \
             --add-data "presets.json:." \
@@ -118,7 +117,7 @@ jobs:
 
           # For now, just zip the app
           cd dist
-          zip -r EasyMatch-macOS.zip ExcelMatcher_v1.0.0.app
+          zip -r EasyMatch-macOS.zip ExcelMatcher.app
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
@@ -152,7 +151,7 @@ jobs:
             ./artifacts/ExcelMatcher-Windows.zip
             ./artifacts/EasyMatch-macOS.zip
           body: |
-            ## Easy Match v1.1.4 Release
+            ## Easy Match v1.1.6 Release
 
             ### Windows
             - Download `ExcelMatcher.exe`
