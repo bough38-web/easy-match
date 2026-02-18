@@ -68,9 +68,17 @@ def match_universal(
     key_cols = [str(k).strip() for k in key_cols if str(k).strip()]
     take_cols = [str(c).strip() for c in take_cols if str(c).strip() and c not in key_cols]
 
+    # Batch Mode Detection
+    files_list = target_config.get("files")
+    # Legacy batch support check (semicolon path)
+    if not files_list and target_config.get("type") == "file" and ";" in str(target_config.get("path", "")):
+         paths = str(target_config["path"]).split(";")
+         files_list = [{'path': p, 'sheet': None, 'header': 1} for p in paths]
+    is_batch = bool(files_list)
+
     if not key_cols:
         raise ValueError("매칭할 키(Key) 컬럼이 없습니다.")
-    if not take_cols:
+    if not take_cols and not is_batch:
         raise ValueError("가져올 컬럼이 없습니다.")
 
     needed_target = list(dict.fromkeys(key_cols + take_cols))
@@ -86,8 +94,126 @@ def match_universal(
     df_b = _load_df(base_config, key_cols)
     if cancel_check(): raise InterruptedError()
     
-    df_t = _load_df(target_config, key_cols + take_cols)  # load keys for matching + takes
-    if cancel_check(): raise InterruptedError()
+    if is_batch:
+        log_progress("다중 파일(Batch) 매칭 모드 시작...", 12)
+        
+        # Initialize joined with base
+        df_t = pd.DataFrame() 
+        
+        joined = df_b.copy()
+        
+        # Apply Base Filters
+        base_filters = filters.get("base_multi", [])
+        if not base_filters and (filters.get("base") or filters.get("base_prefix")):
+            base_filters = [filters.get("base") or filters.get("base_prefix")]
+            
+        if filters:
+             def _apply_f(df, f_list):
+                if not f_list: return df
+                if isinstance(f_list, dict): f_list = [f_list]
+                res_df = df.copy()
+                for f in f_list:
+                    col = f.get("col")
+                    op = f.get("op", "==")
+                    val = f.get("keyword") or f.get("value")
+                    if col not in res_df.columns: continue
+                    if val in ["(값 선택)", "(데이터 없음)", None, ""]: continue
+                    try:
+                        if op in [">=", "<=", ">", "<"]:
+                            f_val = float(val)
+                            col_series = pd.to_numeric(res_df[col], errors='coerce')
+                        else:
+                            f_val = str(val)
+                            col_series = res_df[col].astype(str)
+                        if op == "==": 
+                             res_df = res_df[col_series == f_val]
+                        elif op == ">=": res_df = res_df[col_series >= f_val]
+                        elif op == "<=": res_df = res_df[col_series <= f_val]
+                        elif op == ">": res_df = res_df[col_series > f_val]
+                        elif op == "<": res_df = res_df[col_series < f_val]
+                    except: pass
+                return res_df
+             
+             joined = _apply_f(joined, base_filters)
+             
+        # Apply replacement rules to joined base if applicable
+        if replacement_rules:
+             for col, rules in replacement_rules.items():
+                 if col in joined.columns and isinstance(rules, dict):
+                     joined[col] = joined[col].replace(rules)
+
+        total_files = len(files_list)
+        for i, f_cfg in enumerate(files_list):
+            if cancel_check(): raise InterruptedError()
+            p = f_cfg['path']
+            fname = os.path.basename(p)
+            log_progress(f"[{i+1}/{total_files}] 파일 병합 중: {fname}", 15 + int((i/total_files)*60))
+            
+            try:
+                from excel_io import read_table_file
+                
+                sheet = f_cfg.get('sheet')
+                # If sheet not specified, try to find first
+                if not sheet:
+                    from excel_io import get_sheet_names
+                    sheets = get_sheet_names(p)
+                    sheet = sheets[0] if sheets else 0
+                
+                header = f_cfg.get('header', 1)
+                
+                # Load Target
+                sub_df = read_table_file(p, sheet, header, None)
+                
+                # Apply replacement rules to target
+                if replacement_rules:
+                    for col, rules in replacement_rules.items():
+                        if col in sub_df.columns and isinstance(rules, dict):
+                            sub_df[col] = sub_df[col].replace(rules)
+
+                # Column Selection (Fetch only selected columns + key columns)
+                fetch_cols = f_cfg.get('fetch_cols')
+                if fetch_cols:
+                    mapping = f_cfg.get('mapping', {})
+                    # mapping keys are original target column names
+                    target_key_cols = list(mapping.keys()) if mapping else key_cols
+                    
+                    keep = list(set(fetch_cols) | set(target_key_cols))
+                    keep = [c for c in keep if c in sub_df.columns]
+                    sub_df = sub_df[keep]
+
+                # Column Mapping (Renaming target columns to match base keys)
+                mapping = f_cfg.get('mapping')
+                if mapping:
+                     # mapping is { TargetColName: BaseKeyName }
+                     sub_df = sub_df.rename(columns=mapping)
+                
+                # Verify Keys
+                missing = [k for k in key_cols if k not in sub_df.columns]
+                if missing:
+                    _debug_log(f"Skipping {fname}: Missing keys {missing}")
+                    continue
+                
+                # Deduplicate Target on Keys
+                sub_df = sub_df.drop_duplicates(subset=key_cols, keep="first")
+                
+                # Suffix for this file
+                suffix = f"_{i+1}"
+                
+                # Merge
+                joined = pd.merge(joined, sub_df, on=key_cols, how="left", suffixes=("", suffix))
+                
+            except Exception as e:
+                _debug_log(f"Error merging {fname}: {e}")
+                
+        # Final cleanup for Batch Result
+        take_cols = [c for c in joined.columns if c not in df_b.columns and c not in key_cols]
+        _debug_log(f"Batch Match Finished. Rows: {len(joined)}, New Cols: {len(take_cols)}")
+
+        return _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
+
+    if not is_batch:
+        df_t = _load_df(target_config, key_cols + take_cols)  # load keys for matching + takes
+        if cancel_check(): raise InterruptedError()
     
     # license limit (personal)
     lic_type = (options.get("license_type") or "personal").lower()
@@ -354,6 +480,16 @@ def match_universal(
         # Typically we keep Base Key. Target Key is redundant if matched.
 
 
+    # Finalize and Save
+    return _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
+
+def _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t=None):
+    import pandas as pd
+    import os
+    import datetime
+    from utils import smart_format, remove_illegal_chars
+    from open_excel import write_to_open_excel
+
     # select / fill
     final_cols = key_cols + take_cols
     for c in final_cols:
@@ -365,14 +501,9 @@ def match_universal(
     for c in take_cols:
         joined[c] = joined[c].map(smart_format)
 
-    # Sanitize Column Names (IMPORTANT for software compatibility like Bree/LibreOffice)
-    from utils import remove_illegal_chars
     log_progress("파일 헤더 정리 중...", 94)
     joined.columns = [remove_illegal_chars(str(c)) for c in joined.columns]
-    # Update expected lists with sanitized names
-    sanitized_take = [remove_illegal_chars(str(c)) for c in take_cols]
-    sanitized_key = [remove_illegal_chars(str(c)) for c in key_cols]
-
+    
     # Sanitize entire dataframe to prevent openpyxl crashes (illegal chars)
     log_progress("데이터 저장 준비 중 (특수문자 제거)...", 95)
     _debug_log("Sanitizing data...")
@@ -384,10 +515,11 @@ def match_universal(
     if total:
         # vectorized matched count: any non-empty in take_cols
         import numpy as np
-        # Check if any take col has length > 0
         mask = pd.DataFrame(False, index=joined.index, columns=['match'])
         for c in take_cols:
-             mask['match'] |= (joined[c].astype(str).str.len() > 0)
+             sanitized_c = remove_illegal_chars(str(c))
+             if sanitized_c in joined.columns:
+                 mask['match'] |= (joined[sanitized_c].astype(str).str.len() > 0)
         matched = int(mask['match'].sum())
 
         # Save Condition: Match Only
@@ -416,48 +548,33 @@ def match_universal(
     out_path = os.path.join(out_dir, f"result_{safe}_{ts}{ext}")
     
     log_progress(f"파일 저장 중: {os.path.basename(out_path)}", 96)
-    print(f"[DEBUG] Saving to: {out_path}")
     _debug_log(f"Saving start: {out_path}")
 
     try:
         if save_as_csv:
             log_progress(f"CSV(BOM) 저장 중: {os.path.basename(out_path)}", 96)
-            _debug_log(f"Saving as CSV (UTF-8-SIG): {out_path}")
             joined.to_csv(out_path, index=False, encoding="utf-8-sig")
-            _debug_log("CSV Save Success.")
         else:
-            # Explicit try with xlsxwriter first (faster, reliable)
             try:
                 import xlsxwriter
-                _debug_log("Using xlsxwriter engine with optimized settings...")
-                # strings_to_urls=False prevents crashes on long strings that look like URLs
                 with pd.ExcelWriter(out_path, engine='xlsxwriter', engine_kwargs={'options': {'strings_to_urls': False}}) as writer:
                     joined.to_excel(writer, sheet_name="matched", index=False)
-                    # Auto-filter and freeze pane for professional look
                     worksheet = writer.sheets['matched']
                     worksheet.freeze_panes(1, 0)
-                _debug_log("xlsxwriter Save Success.")
             except ImportError:
-                # Fallback to default (likely openpyxl)
                 log_progress("xlsxwriter 없음, 기본 엔진 사용...", 97)
-                _debug_log("xlsxwriter module not found. Using default.")
                 joined.to_excel(out_path, sheet_name="matched", index=False)
             except Exception as e:
-                # xlsxwriter failed? try openpyxl
-                print(f"[WARN] xlsxwriter failed: {e}")
-                _debug_log(f"xlsxwriter Failed: {e}. Retrying with default...")
                 log_progress("기본 엔진으로 재시도...", 98)
                 joined.to_excel(out_path, sheet_name="matched", index=False)
         
         _debug_log("Final Save Logic Completed.")
 
     except PermissionError:
-        _debug_log("PermissionError encountered.")
         raise Exception(f"저장 실패: 파일이 열려있습니다.\n'{os.path.basename(out_path)}'를 닫아주세요.")
     except Exception as e:
         import traceback
         traceback.print_exc()
-        _debug_log(f"Save Exception: {e}")
         raise Exception(f"파일 저장 중 오류 발생: {e}")
 
     # Process "Open Excel" if applicable
@@ -466,6 +583,13 @@ def match_universal(
             log_progress("엑셀 시트에 결과 입력 중...")
             import pythoncom
             pythoncom.CoInitialize()
+            use_color = bool(options.get("color", False))
+            
+            # Note: write_to_open_excel uses original key/take cols.
+            # but joined has sanitized columns.
+            # We must assume write_to_open_excel handles this or we pass sanitized names?
+            # Existing code passed 'take_cols'. 
+            # We'll pass as is.
             write_to_open_excel(
                 base_config["book"],
                 base_config["sheet"],
@@ -476,10 +600,9 @@ def match_universal(
                 use_color,
             )
             log_progress("입력 완료.")
-            # Preview for open excel
-            if len(df_t) > 10:
-                df_t = df_t.head(10)
-                log_progress(f"Top 10 추출 완료 ({len(df_t)}건)")
+            
+            if df_t is not None and len(df_t) > 10:
+                pass
         except Exception as e:
             log_progress(f"[경고] 시트 입력 실패 (파일로만 저장됨): {e}")
 

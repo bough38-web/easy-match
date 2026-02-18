@@ -26,7 +26,7 @@ REM --hidden-import: ensure dependencies are included
 REM Build using CLI arguments (avoiding Spec file Unicode path issues)
 echo [BUILD] PyInstaller 실행 중 (CLI Mode)...
 pyinstaller --noconfirm --onedir --windowed ^
-    --name "ExcelMatcher" ^
+    --name "ExcelMatcher_v1.0.0" ^
     --hidden-import "pandas" ^
     --hidden-import "xlwings" ^
     --hidden-import "openpyxl" ^
@@ -34,7 +34,7 @@ pyinstaller --noconfirm --onedir --windowed ^
     --hidden-import "requests" ^
     --collect-all "Pillow" ^
     --add-data "assets;assets" ^
-    --add-data "usage_guide.html;." ^
+    --add-data "seller_assets\user_manual_v1.0.0.html;seller_assets" ^
     --icon "assets\app.ico" ^
     main.py
 

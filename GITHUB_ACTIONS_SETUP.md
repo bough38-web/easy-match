@@ -9,7 +9,7 @@
 ## 2️⃣ 코드 업로드
 
 ```bash
-cd /Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1
+cd /Users/User/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1
 
 # Git 초기화
 git init

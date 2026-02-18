@@ -30,7 +30,7 @@
 ### 3단계: 또는 새 커밋 푸시
 
 ```bash
-cd /Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1
+cd /Users/User/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1
 
 # 빈 커밋 생성 (워크플로우 트리거용)
 git commit --allow-empty -m "Trigger GitHub Actions"

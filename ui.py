@@ -5,7 +5,7 @@ import json
 import sys
 import tkinter as tk
 import traceback
-from tkinter import ttk, filedialog, messagebox, simpledialog
+from tkinter import ttk, filedialog, simpledialog
 from PIL import Image, ImageTk
 
 # Try to import tkinterdnd2 for drag and drop support
@@ -36,6 +36,7 @@ from commercial_config import (
     TRIAL_SUBJECT,
 )
 from admin_panel import AdminPanel
+from guide_overlay import GuideManager
 
 # -------------------------
 # Matched Data Preview Dialog
@@ -108,7 +109,7 @@ def show_preview_dialog(parent, out_path, summary, preview_df):
 
     dialog.wait_window()
 
-APP_TITLE = "Easy Match(이지 매치)"
+APP_TITLE = f"Easy Match v{__version__} (Mac/Win) - 엑셀 병합/매칭 도구"
 APP_DESCRIPTION = "엑셀과 CSV를 하나로, 클릭 한 번으로 끝나는 데이터 매칭"
 
 # 출력 디렉토리를 사용자의 Documents 폴더로 설정 (macOS 호환성)
@@ -159,6 +160,157 @@ class GradientFrame(tk.Canvas):
         self.create_line(0, height-1, width, height-1, fill="#1c2833", width=1, tags=("gradient",))
         
         self.tag_lower("gradient")
+
+
+# -------------------------
+# Custom Dialogs (Replace messagebox to fix SIGBUS on macOS)
+# -------------------------
+def show_custom_alert(parent, title, message, kind="info"):
+    """
+    Custom replacement for messagebox.showinfo/warning/error to avoid SIGBUS (NSAlert) on macOS.
+    kind: 'info', 'warning', 'error'
+    """
+    try:
+        # Check if parent is valid
+        if parent and (not isinstance(parent, (tk.Tk, tk.Toplevel, tk.Widget)) or not parent.winfo_exists()):
+            parent = None
+        base = parent
+        dialog = tk.Toplevel(base)
+    except:
+        dialog = tk.Toplevel()
+        
+    dialog.title(title)
+    
+    # Calculate height based on message length roughly
+    lines = message.count('\n') + (len(message) // 40)
+    height = 200 + (lines * 20)
+    dialog.geometry(f"420x{height}")
+    dialog.resizable(False, False)
+    
+    if parent:
+        dialog.transient(parent)
+        dialog.grab_set() # Modal
+        
+    # Colors
+    header_col1 = "#2c3e50"
+    header_col2 = "#34495e"
+    
+    # macOS rendering safe icons
+    icon_char = "ℹ" 
+    
+    if kind == "warning":
+        header_col1 = "#f39c12" # Orange
+        header_col2 = "#d35400"
+        icon_char = "⚠"
+    elif kind == "error":
+        header_col1 = "#c0392b" # Red
+        header_col2 = "#e74c3c"
+        icon_char = "✕"
+    elif kind == "success": # Custom
+        header_col1 = "#27ae60" # Green
+        header_col2 = "#2ecc71"
+        icon_char = "✓"
+        
+    # Header
+    try:
+        header = GradientFrame(dialog, color1=header_col1, color2=header_col2, height=50)
+        header.pack(fill="x")
+        # Use simple label inside canvas or fallback if canvas text is tricky
+        header.create_text(20, 25, text=f"{icon_char}  {title}", font=(get_system_font()[0], 13, "bold"), fill="white", anchor="w")
+    except:
+        # Fallback if GradientFrame fails or circular ref
+        tk.Label(dialog, text=f"{icon_char} {title}", bg=header_col1, fg="white", font=("Arial", 12, "bold"), pady=10).pack(fill="x")
+    
+    # Content
+    content = tk.Frame(dialog, bg="white", padx=20, pady=20)
+    content.pack(fill="both", expand=True)
+    
+    msg_lbl = tk.Label(content, text=message, font=(get_system_font()[0], 11), bg="white", wraplength=380, justify="left", fg="#333333")
+    msg_lbl.pack(expand=True, fill="both")
+    
+    # Button
+    btn_frame = tk.Frame(dialog, bg="#f0f0f0", height=50)
+    btn_frame.pack(fill="x", side="bottom")
+    
+    ok_btn = ttk.Button(btn_frame, text="확인", command=dialog.destroy)
+    ok_btn.pack(pady=10)
+    
+    # Center on parent
+    try:
+        if parent:
+            x = parent.winfo_rootx() + (parent.winfo_width()//2) - 210
+            y = parent.winfo_rooty() + (parent.winfo_height()//2) - (height//2)
+            dialog.geometry(f"+{x}+{y}")
+    except:
+        pass
+        
+    dialog.wait_window()
+
+def show_custom_confirm(parent, title, message):
+    """
+    Custom replacement for messagebox.askyesno
+    Returns: True (Yes) or False (No)
+    """
+    result = tk.BooleanVar(value=False)
+    
+    try:
+        if parent and (not isinstance(parent, (tk.Tk, tk.Toplevel, tk.Widget)) or not parent.winfo_exists()):
+            parent = None
+        base = parent
+        dialog = tk.Toplevel(base)
+    except:
+        dialog = tk.Toplevel()
+        
+    dialog.title(title)
+    dialog.geometry("420x220")
+    dialog.resizable(False, False)
+    
+    if parent:
+        dialog.transient(parent)
+        dialog.grab_set()
+        
+    # Header (Question style)
+    header = GradientFrame(dialog, color1="#2980b9", color2="#3498db", height=50)
+    header.pack(fill="x")
+    header.create_text(20, 25, text=f"❓  {title}", font=(get_system_font()[0], 13, "bold"), fill="white", anchor="w")
+    
+    # Content
+    content = tk.Frame(dialog, bg="white", padx=20, pady=20)
+    content.pack(fill="both", expand=True)
+    
+    msg_lbl = tk.Label(content, text=message, font=(get_system_font()[0], 11), bg="white", wraplength=380, justify="left", fg="#333333")
+    msg_lbl.pack(expand=True, fill="both")
+    
+    # Buttons
+    btn_frame = tk.Frame(dialog, bg="#f0f0f0", height=50)
+    btn_frame.pack(fill="x", side="bottom")
+    
+    def on_yes():
+        result.set(True)
+        dialog.destroy()
+        
+    def on_no():
+        result.set(False)
+        dialog.destroy()
+    
+    # Place buttons with spacing
+    btn_box = tk.Frame(btn_frame, bg="#f0f0f0")
+    btn_box.pack(pady=10)
+    
+    ttk.Button(btn_box, text="예 (Yes)", command=on_yes).pack(side="left", padx=10)
+    ttk.Button(btn_box, text="아니오 (No)", command=on_no).pack(side="left", padx=10)
+    
+    # Center
+    try:
+        if parent:
+            x = parent.winfo_rootx() + (parent.winfo_width()//2) - 210
+            y = parent.winfo_rooty() + (parent.winfo_height()//2) - 110
+            dialog.geometry(f"+{x}+{y}")
+    except:
+        pass
+        
+    dialog.wait_window()
+    return result.get()
 
 
 # -------------------------
@@ -360,7 +512,7 @@ class ReplacementEditor(tk.Toplevel):
         old = self.ent_old.get().strip()
         new = self.ent_new.get().strip()
         if not col or not old:
-            messagebox.showwarning("입력 오류", "컬럼명과 변경 전 값은 필수입니다.")
+            show_custom_alert(self, "입력 오류", "컬럼명과 변경 전 값은 필수입니다.", "warning")
             return
         self.rules.setdefault(col, {})[old] = new
         self.refresh_tree()
@@ -382,7 +534,7 @@ class ReplacementEditor(tk.Toplevel):
         if not item:
             return
         col, old, new = self.tree.item(item, "values")
-        if messagebox.askyesno("삭제", f"'{col}' 컬럼의 '{old}' -> '{new}' 규칙을 삭제할까요?"):
+        if show_custom_confirm(self, "삭제", f"'{col}' 컬럼의 '{old}' -> '{new}' 규칙을 삭제할까요?"):
             if col in self.rules and old in self.rules[col]:
                 del self.rules[col][old]
                 if not self.rules[col]:
@@ -391,7 +543,7 @@ class ReplacementEditor(tk.Toplevel):
             self._persist()
 
     def clear_all(self):
-        if messagebox.askyesno("초기화", "모든 규칙을 지우시겠습니까?"):
+        if show_custom_confirm(self, "초기화", "모든 규칙을 지우시겠습니까?"):
             self.rules = {}
             self.refresh_tree()
             self._persist()
@@ -402,8 +554,15 @@ class ReplacementEditor(tk.Toplevel):
         self.cb_preset.set("설정을 선택하세요" if names else "저장된 설정 없음")
 
     def save_preset(self):
+        # Check if there's pending input in the fields
+        col = self.ent_col.get().strip()
+        old = self.ent_old.get().strip()
+        if col and old:
+            # Auto-add the pending rule
+            self.add_rule()
+
         if not self.rules:
-            messagebox.showwarning("경고", "저장할 규칙이 없습니다.")
+            show_custom_alert(self, "경고", "저장할 규칙이 없습니다.", "warning")
             return
         name = simpledialog.askstring("설정 저장", "치환 규칙 세트 이름 입력:")
         if not name:
@@ -418,11 +577,11 @@ class ReplacementEditor(tk.Toplevel):
         self.cb_preset.set(name)
         self.update_preset_cb()
         self._persist()
-        messagebox.showinfo("저장", f"[{name}] 규칙이 저장되었습니다.")
+        show_custom_alert(self, "저장", f"[{name}] 규칙이 저장되었습니다.", "success")
 
     def delete_preset(self):
         name = self.cb_preset.get()
-        if name in self.presets and messagebox.askyesno(
+        if name in self.presets and show_custom_confirm(self,
             "삭제", f"[{name}] 규칙 세트를 삭제하시겠습니까?"
         ):
             del self.presets[name]
@@ -705,32 +864,480 @@ class MultiFilterRow:
             "keyword": self.val_var.get()
         }
 
-class FileLoaderFrame(ttk.LabelFrame):
-    def __init__(self, master, title, mode_var, on_change=None, on_fetch_vals=None):
-        super().__init__(master, text=title, padding=10)
+class ColumnMappingDialog(tk.Toplevel):
+    def __init__(self, master, base_keys, target_headers, current_mapping=None):
+        super().__init__(master)
+        self.title("컬럼 매핑 설정")
+        self.geometry("450x400")
+        self.transient(master)
+        self.grab_set()
+        
+        self.base_keys = base_keys
+        self.target_headers = ["(사용 안 함)"] + list(target_headers)
+        self.mapping = current_mapping if current_mapping else {}
+        self.result_mapping = None
+        
+        # Layout
+        content = tk.Frame(self, bg="white", padx=20, pady=20)
+        content.pack(fill="both", expand=True)
+        
+        tk.Label(content, text="기준 데이터의 '키' 컬럼과 대상 파일의 컬럼을 연결하세요.", 
+                 font=("Pretendard", 10, "bold"), bg="white", fg="#2c3e50").pack(pady=(0,15), anchor="w")
+        
+        # Scrollable area for mappings
+        container = tk.Frame(content, bg="white")
+        container.pack(fill="both", expand=True)
+        
+        canvas = tk.Canvas(container, bg="white", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas, bg="white")
+        
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=380)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        self.combos = {}
+        for k in self.base_keys:
+            row = tk.Frame(self.scrollable_frame, bg="white", pady=5)
+            row.pack(fill="x")
+            
+            tk.Label(row, text=f"기준: {k}", font=("Pretendard", 9), bg="white", width=20, anchor="w").pack(side="left")
+            tk.Label(row, text="→", bg="white").pack(side="left", padx=10)
+            
+            cb = ttk.Combobox(row, values=self.target_headers, state="readonly", width=20)
+            # Find best match or use current
+            current_tgt = self.mapping.get(k)
+            if current_tgt and current_tgt in self.target_headers:
+                cb.set(current_tgt)
+            else:
+                # Automap if exact name exists (smart match: trim and case-insensitive)
+                match = None
+                k_clean = str(k).strip().lower()
+                for h in self.target_headers:
+                    if h == "(사용 안 함)": continue
+                    if str(h).strip().lower() == k_clean:
+                        match = h
+                        break
+                
+                if match:
+                    cb.set(match)
+                else:
+                    cb.set("(사용 안 함)")
+            cb.pack(side="left")
+            self.combos[k] = cb
+            
+        # Buttons
+        btn_frame = tk.Frame(self, bg="#f0f0f0", pady=10)
+        btn_frame.pack(fill="x")
+        
+        ttk.Button(btn_frame, text="취소", command=self.destroy).pack(side="right", padx=10)
+        ttk.Button(btn_frame, text="적용", command=self._apply).pack(side="right", padx=10)
+
+    def _apply(self):
+        new_mapping = {}
+        for k, cb in self.combos.items():
+            val = cb.get()
+            if val != "(사용 안 함)":
+                new_mapping[val] = k # Target Field -> Base Key Name (for rename)
+        self.result_mapping = new_mapping
+        self.destroy()
+
+class BatchColumnSelectDialog(tk.Toplevel):
+    """Dialog for selecting specific columns to fetch from a file in batch mode."""
+    def __init__(self, master, all_columns, current_selection=None):
+        super().__init__(master)
+        self.title("가져올 컬럼 선택")
+        self.geometry("400x500")
+        self.transient(master)
+        self.grab_set()
+        
+        self.all_columns = all_columns
+        # If nothing selected, default to all checked
+        self.current_selection = list(current_selection) if current_selection else list(all_columns)
+        self.result = None
+        
+        # UI
+        content = tk.Frame(self, bg="white", padx=20, pady=20)
+        content.pack(fill="both", expand=True)
+        
+        tk.Label(content, text="결과에 포함할 컬럼을 선택하세요.", 
+                 font=("Pretendard", 10, "bold"), bg="white", fg="#2c3e50").pack(pady=(0,10), anchor="w")
+        
+        # Select All / None
+        ctrl_frame = tk.Frame(content, bg="white")
+        ctrl_frame.pack(fill="x", pady=(0,10))
+        ttk.Button(ctrl_frame, text="전체 선택", command=self._select_all).pack(side="left", padx=2)
+        ttk.Button(ctrl_frame, text="전체 해제", command=self._select_none).pack(side="left", padx=2)
+
+        # Scrollable area
+        container = tk.Frame(content, bg="white")
+        container.pack(fill="both", expand=True)
+        
+        canvas = tk.Canvas(container, bg="white", highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas, bg="white")
+        
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw", width=340)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        self.checks = {}
+        for col in self.all_columns:
+            var = tk.BooleanVar(value=(col in self.current_selection))
+            cb = tk.Checkbutton(self.scrollable_frame, text=col, variable=var, 
+                                bg="white", font=("Pretendard", 9), anchor="w")
+            cb.pack(fill="x")
+            self.checks[col] = var
+            
+        # Buttons
+        btn_frame = tk.Frame(self, bg="#f0f0f0", pady=10)
+        btn_frame.pack(fill="x")
+        ttk.Button(btn_frame, text="취소", command=self.destroy).pack(side="right", padx=10)
+        ttk.Button(btn_frame, text="확인", command=self._apply).pack(side="right", padx=10)
+
+    def _select_all(self):
+        for v in self.checks.values(): v.set(True)
+    def _select_none(self):
+        for v in self.checks.values(): v.set(False)
+        
+    def _apply(self):
+        self.result = [col for col, var in self.checks.items() if var.get()]
+        self.destroy()
+
+class MultiFileDialog(tk.Toplevel):
+    def __init__(self, master, current_files=None, on_apply=None, base_keys=None):
+        super().__init__(master)
+        self.title("다중 파일 선택 (Advanced Batch)")
+        self.geometry("750x500") # Wider
+        self.transient(master)
+        self.grab_set()
+        
+        self.on_apply = on_apply
+        self.base_keys = base_keys if base_keys else []
+        import copy
+        # Deep copy to allow cancellation
+        self.files = copy.deepcopy(current_files) if current_files else [] 
+        
+        # UI Components
+        self._init_ui()
+        self._render_file_list()
+
+    def _init_ui(self):
+        # Header
+        header = tk.Frame(self, bg="#f8f9fa", pady=15)
+        header.pack(fill="x")
+        tk.Label(header, text="대상 파일 일괄 관리 (최대 10개)", font=("Pretendard", 13, "bold"), bg="#f8f9fa", fg="#2c3e50").pack()
+        tk.Label(header, text="각 파일의 '시트(Sheet)'를 정확히 지정해주세요.", font=("Pretendard", 9), fg="#7f8c8d", bg="#f8f9fa").pack()
+        
+        # File List Area (Scrollable)
+        self.canvas = tk.Canvas(self, borderwidth=0, background="#ffffff")
+        self.frame = tk.Frame(self.canvas, background="#ffffff")
+        self.vsb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vsb.set)
+        
+        self.vsb.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.create_window((0,0), window=self.frame, anchor="nw", tags="self.frame")
+        
+        self.frame.bind("<Configure>", lambda event, canvas=self.canvas: canvas.configure(scrollregion=canvas.bbox("all")))
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig("self.frame", width=e.width))
+        
+        # Footer
+        footer = tk.Frame(self, bg="#f8f9fa", pady=10)
+        footer.pack(side="bottom", fill="x")
+        
+        ttk.Button(footer, text="+ 파일 추가", command=self._add_file).pack(side="left", padx=20)
+        ttk.Button(footer, text="초기화", command=self._clear_all).pack(side="left", padx=5)
+        
+        # Unified Column Select Button
+        self.unified_btn = ttk.Button(footer, text="통합컬럼 선택", command=self._open_unified_column_selection)
+        self.unified_btn.pack(side="left", padx=5)
+        
+        ttk.Button(footer, text="적용 (Apply)", command=self._apply, style="Accent.TButton").pack(side="right", padx=20)
+        ttk.Button(footer, text="취소", command=self.destroy).pack(side="right", padx=5)
+
+    def _render_file_list(self):
+        for widget in self.frame.winfo_children():
+            widget.destroy()
+            
+        if not self.files:
+            tk.Label(self.frame, text="선택된 파일이 없습니다.\n[+ 파일 추가] 버튼을 눌러주세요.", 
+                     bg="white", fg="#95a5a6", pady=50).pack(fill="x")
+            return
+            
+        for i, f in enumerate(self.files):
+            row = tk.Frame(self.frame, bg="white", pady=8, padx=10)
+            row.pack(fill="x", pady=1)
+            
+            # Decoration
+            tk.Label(row, text=f"{i+1}", font=("Pretendard", 10, "bold"), width=3, bg="#ecf0f1", fg="#7f8c8d").pack(side="left", padx=(0,10))
+            
+            # File Info
+            fname = os.path.basename(f['path'])
+            # Truncate if too long (optional, since we use expand now)
+            if len(fname) > 30: fname = fname[:27] + "..."
+            
+            # --- PACKING ORDER START ---
+            
+            # 1. Remove Button (Far Right)
+            ttk.Button(row, text="✕", width=3, command=lambda idx=i: self._remove_file(idx)).pack(side="right", padx=10)
+
+            # 2. Mapping Button
+            map_btn = ttk.Button(row, text="매핑", width=5, command=lambda idx=i: self._open_mapping(idx))
+            map_btn.pack(side="right", padx=5)
+            if f.get('mapping'):
+                 map_btn.config(text="매핑됨")
+
+            # 3. Column Selection Button
+            col_btn = ttk.Button(row, text="컬럼 선택", width=7, command=lambda idx=i: self._open_column_selection(idx))
+            col_btn.pack(side="right", padx=5)
+            if f.get('fetch_cols'):
+                col_btn.config(text=f"컬럼({len(f['fetch_cols'])})")
+
+            # 4. Sheet Selector (Right of Info)
+            sheets = f.get('sheets', [])
+            if not sheets:
+                try:
+                    from excel_io import get_sheet_names
+                    sheets = get_sheet_names(f['path'])
+                    f['sheets'] = sheets
+                    if not f.get('sheet') and sheets:
+                        f['sheet'] = sheets[0]
+                except:
+                    sheets = ["Load Error"]
+            
+            current_sheet = f.get('sheet', (sheets[0] if sheets else ""))
+            
+            combo = ttk.Combobox(row, values=sheets, state="readonly", width=15)
+            combo.set(current_sheet)
+            combo.pack(side="right", padx=5)
+            combo.bind("<<ComboboxSelected>>", lambda e, idx=i, c=combo: self._update_sheet(idx, c.get()))
+            tk.Label(row, text="시트:", bg="white", font=("Pretendard", 9)).pack(side="right")
+
+            # 5. Header Spinbox (Added earlier but let's place it here too)
+            tk.Label(row, text="헤더:", bg="white", font=("Pretendard", 9)).pack(side="right", padx=(10,0))
+            hdr_var = tk.IntVar(value=f.get('header', 1))
+            hdr_sp = ttk.Spinbox(row, from_=1, to=100, width=3, textvariable=hdr_var,
+                                command=lambda idx=i, v=hdr_var: self._update_header(idx, v.get()))
+            hdr_sp.pack(side="right", padx=(2,5))
+            hdr_sp.bind("<Return>", lambda e, idx=i, v=hdr_var: self._update_header(idx, v.get()))
+
+            # 6. Info Frame (Fills remaining space in Middle)
+            info_frame = tk.Frame(row, bg="white")
+            info_frame.pack(side="left", fill="x", expand=True)
+            
+            tk.Label(info_frame, text=fname, font=("Pretendard", 10, "bold"), anchor="w", bg="white").pack(fill="x")
+            tk.Label(info_frame, text=f['path'], font=("Pretendard", 8), fg="#95a5a6", anchor="w", bg="white").pack(fill="x")
+            
+            # --- PACKING ORDER END ---
+
+            # Divider
+            ttk.Separator(self.frame, orient="horizontal").pack(fill="x", padx=10)
+
+    def _update_sheet(self, idx, val):
+        self.files[idx]['sheet'] = val
+        
+    def _open_mapping(self, idx):
+        f = self.files[idx]
+        if not f.get('sheet'):
+            show_custom_alert(self, "경고", "먼저 시트를 선택해야 합니다.", "warning")
+            return
+            
+        # Fetch headers for this file/sheet
+        try:
+            from excel_io import read_header_file
+            headers = read_header_file(f['path'], f['sheet'], f.get('header', 1))
+            
+            # Map Base Keys -> Target Columns
+            # We want current_mapping to be Base -> Target
+            current_mapping_base_to_tgt = {}
+            if f.get('mapping'):
+                # reverse internal mapping (Target->Base) for UI
+                for tgt, base in f['mapping'].items():
+                    current_mapping_base_to_tgt[base] = tgt
+            
+            dlg = ColumnMappingDialog(self, self.base_keys, headers, current_mapping_base_to_tgt)
+            self.wait_window(dlg)
+            
+            if dlg.result_mapping is not None:
+                f['mapping'] = dlg.result_mapping
+                self._render_file_list()
+                
+        except Exception as e:
+            show_custom_alert(self, "오류", f"컬럼 정보를 가져올 수 없습니다:\n{e}", "error")
+
+    def _open_column_selection(self, idx):
+        f = self.files[idx]
+        if not f.get('sheet'):
+            show_custom_alert(self, "경고", "먼저 시트를 선택해야 합니다.", "warning")
+            return
+            
+        try:
+            from excel_io import read_header_file
+            headers = read_header_file(f['path'], f['sheet'], f.get('header', 1))
+            
+            dlg = BatchColumnSelectDialog(self, headers, f.get('fetch_cols'))
+            self.wait_window(dlg)
+            
+            if dlg.result is not None:
+                f['fetch_cols'] = dlg.result
+                self._render_file_list()
+                
+        except Exception as e:
+            show_custom_alert(self, "오류", f"컬럼 정보를 가져올 수 없습니다:\n{e}", "error")
+
+    def _open_unified_column_selection(self):
+        """Find common columns across all files and allow bulk selection."""
+        if not self.files:
+            show_custom_alert(self, "경고", "먼저 파일을 추가하세요.", "warning")
+            return
+            
+        # Check if all files have sheets selected
+        missing = [i+1 for i, f in enumerate(self.files) if not f.get('sheet')]
+        if missing:
+            show_custom_alert(self, "경고", f"다음 순번 파일의 시트가 선택되지 않았습니다: {missing}", "warning")
+            return
+
+        try:
+            from excel_io import read_header_file
+            
+            all_file_headers = []
+            for f in self.files:
+                h = read_header_file(f['path'], f['sheet'], f.get('header', 1))
+                all_file_headers.append(set(h))
+            
+            # Intersection of all headers
+            common_cols = set.intersection(*all_file_headers)
+            common_list = sorted(list(common_cols))
+            
+            if not common_list:
+                show_custom_alert(self, "정보", "모든 파일에서 공통으로 발견된 컬럼이 없습니다.", "info")
+                return
+                
+            dlg = BatchColumnSelectDialog(self, common_list)
+            self.wait_window(dlg)
+            
+            if dlg.result is not None:
+                # Apply result to all files
+                for f in self.files:
+                    f['fetch_cols'] = dlg.result
+                self._render_file_list()
+                show_custom_alert(self, "완료", f"선택한 {len(dlg.result)}개 컬럼을 모든 파일에 적용했습니다.", "info")
+                
+        except Exception as e:
+            show_custom_alert(self, "오류", f"통합 컬럼 정보를 생성할 수 없습니다:\n{e}", "error")
+
+    def _add_file(self):
+        if len(self.files) >= 10:
+            show_custom_alert(self, "제한 초과", "최대 10개까지만 추가할 수 있습니다.", "warning")
+            return
+            
+        paths = filedialog.askopenfilenames(filetypes=[("Excel Files", "*.xlsx *.xls *.csv")])
+        if not paths: return
+        
+        added_count = 0
+        for p in paths:
+            if len(self.files) >= 10: break
+            # Avoid duplicates? User might want same file different sheet. Allow duplicates.
+            self.files.append({'path': p, 'sheet': None, 'header': 1})
+            added_count += 1
+            
+        if added_count > 0:
+            self._render_file_list()
+        
+    def _remove_file(self, idx):
+        self.files.pop(idx)
+        self._render_file_list()
+        
+    def _clear_all(self):
+        if not self.files: return
+        if show_custom_confirm(self, "목록 초기화", "모든 파일을 목록에서 제거하시겠습니까?"):
+            self.files = []
+            self._render_file_list()
+        
+    def _apply(self):
+        if not self.files:
+             show_custom_alert(self, "경고", "최소 1개의 파일을 선택해야 합니다.", "warning")
+             return
+             
+        # Validate sheets
+        missing_sheets = [os.path.basename(f['path']) for f in self.files if not f.get('sheet')]
+        if missing_sheets:
+            show_custom_alert(self, "시트 미선택", f"다음 파일의 시트가 선택되지 않았습니다:\n{', '.join(missing_sheets)}", "warning")
+            return
+
+        if self.on_apply:
+            self.on_apply(self.files)
+        self.destroy()
+
+
+class FileLoaderFrame(tk.Frame):
+    def __init__(self, master, title, mode_var, on_change=None, on_fetch_vals=None, allow_multiple=False):
+        super().__init__(master, bg="white", highlightbackground="#bdc3c7", highlightthickness=1)
         self.mode = mode_var
         self.on_change = on_change
         self.on_fetch_vals = on_fetch_vals
+        self.allow_multiple = allow_multiple
         
         self.path = tk.StringVar()
         self.book = tk.StringVar()
         self.sheet = tk.StringVar()
         self.header = tk.IntVar(value=1)
+        self.multi_files = [] # For batch mode with detailed config
+
+        # Content Container with padding
+        self.content = tk.Frame(self, bg="white", padx=15, pady=15)
+        self.content.pack(fill="both", expand=True)
+
+        # Custom Header
+        tk.Label(self.content, text=title, font=(get_system_font()[0], 11, "bold"), bg="white", fg="#2c3e50", anchor="w").pack(fill="x", pady=(0, 10))
 
         # Top: Mode selection
-        top = ttk.Frame(self)
+        top = tk.Frame(self.content, bg="white")
         top.pack(fill="x", pady=(0, 5))
         
-        ttk.Radiobutton(top, text="파일 불러오기", value="file", variable=self.mode, command=self._refresh_ui).pack(side="left", padx=(0, 10))
-        ttk.Radiobutton(top, text="열려있는 엑셀", value="open", variable=self.mode, command=self._refresh_ui).pack(side="left")
+        # Custom Radio Styling (using tk for bg control)
+        # Note: ttk.Radiobutton with 'white' background style is tricky, using tk.Radiobutton for simplicity in card
+        tk.Radiobutton(top, text="파일 불러오기", value="file", variable=self.mode, command=self._refresh_ui, bg="white", activebackground="white").pack(side="left", padx=(0, 10))
+        tk.Radiobutton(top, text="열려있는 엑셀", value="open", variable=self.mode, command=self._refresh_ui, bg="white", activebackground="white").pack(side="left")
         
         # Align Refresh button
-        ttk.Button(top, text="새로고침", command=self.refresh_all, width=8).pack(side="right")
+        ttk.Button(top, text="새로고침", command=self.reset, width=8).pack(side="right")
 
         # File Mode UI
-        self.f_frame = ttk.Frame(self)
+        self.f_frame = tk.Frame(self.content, bg="white")
         entry = ttk.Entry(self.f_frame, textvariable=self.path)
         entry.pack(side="left", fill="x", expand=True)
+
+        # Placeholder Text
+        lbl_prompt = tk.Label(entry, text="파일을 이곳에 드래그하거나 찾기 버튼을 눌러주세요", 
+                            bg="white", fg="#aaaaaa", font=(get_system_font()[0], 10),
+                            cursor="xterm")
+        lbl_prompt.place(relx=0.5, rely=0.5, anchor="center")
+        
+        def _check_placeholder(*args):
+            if self.path.get():
+                lbl_prompt.place_forget()
+            else:
+                lbl_prompt.place(relx=0.5, rely=0.5, anchor="center")
+        
+        self.path.trace_add("write", _check_placeholder)
+        
+        # Click on label -> Focus entry
+        lbl_prompt.bind("<Button-1>", lambda e: entry.focus_set())
         # Drag Drop bind
         if DRAG_DROP_AVAILABLE:
             try:
@@ -739,40 +1346,43 @@ class FileLoaderFrame(ttk.LabelFrame):
             except: pass
 
         # Align Find button
+        # Align Find button
+        if self.allow_multiple:
+            ttk.Button(self.f_frame, text="다중 선택", command=self._open_multi_dialog, width=10).pack(side="right", padx=(5, 0))
         ttk.Button(self.f_frame, text="찾기", command=self._pick_file, width=8).pack(side="right", padx=(5, 0))
 
         # Open Mode UI
-        self.o_frame = ttk.Frame(self)
+        self.o_frame = tk.Frame(self.content, bg="white")
         self.cb_book = ttk.Combobox(self.o_frame, textvariable=self.book, state="readonly")
         self.cb_book.pack(side="left", fill="x", expand=True)
         self.cb_book.bind("<<ComboboxSelected>>", self._on_book_select)
 
         # Common UI (Sheet/Header)
-        self.c_frame = ttk.Frame(self)
+        self.c_frame = tk.Frame(self.content, bg="white")
         self.c_frame.pack(fill="x", pady=(5, 0))
         
-        ttk.Label(self.c_frame, text="시트:").pack(side="left")
+        tk.Label(self.c_frame, text="시트:", bg="white").pack(side="left")
         self.cb_sheet = ttk.Combobox(self.c_frame, textvariable=self.sheet, state="readonly", width=15)
         self.cb_sheet.pack(side="left", padx=5)
         self.cb_sheet.bind("<<ComboboxSelected>>", self._notify_change)
         
-        ttk.Label(self.c_frame, text="헤더:").pack(side="left", padx=(10, 0))
+        tk.Label(self.c_frame, text="헤더:", bg="white").pack(side="left", padx=(10, 0))
         ttk.Spinbox(self.c_frame, from_=1, to=99, textvariable=self.header, width=5, command=self._notify_change).pack(side="left", padx=5)
 
         # Filter UI (Redesigned)
-        self.f_opt_frame = ttk.Frame(self)
-        self.f_opt_frame.pack(fill="x", pady=(5, 0))
+        self.f_opt_frame = tk.Frame(self.content, bg="white")
+        self.f_opt_frame.pack(fill="x", pady=(10, 0))
         
         self.filter_expanded = tk.BooleanVar(value=False)
         self.btn_toggle_f = ttk.Button(self.f_opt_frame, text="▶ 필터 조건 설정 (0개)", command=self._toggle_filters)
         self.btn_toggle_f.pack(side="left")
         
-        self.f_container = ttk.Frame(self)
+        self.f_container = tk.Frame(self.content, bg="white")
         # Initially hidden
         
         self.f_rows: List[MultiFilterRow] = []
         
-        self.row_controls = ttk.Frame(self.f_container)
+        self.row_controls = tk.Frame(self.f_container, bg="white")
         self.row_controls.pack(fill="x", pady=5)
         
         self.btn_add_f = ttk.Button(self.row_controls, text="+ 필터 추가", command=self._add_filter_row)
@@ -797,7 +1407,7 @@ class FileLoaderFrame(ttk.LabelFrame):
 
     def _add_filter_row(self):
         if len(self.f_rows) >= 5:
-            messagebox.showwarning("제한", "필터 조건은 최대 5개까지 가능합니다.")
+            show_custom_alert(self, "제한", "필터 조건은 최대 5개까지 가능합니다.", "warning")
             return
         
         row = MultiFilterRow(self.f_container, self.get_cols_callback, self.on_fetch_vals, self._remove_filter_row)
@@ -879,7 +1489,7 @@ class FileLoaderFrame(ttk.LabelFrame):
             file_path = event.data.strip('{}')
             valid_extensions = ('.xlsx', '.xls', '.csv')
             if not file_path.lower().endswith(valid_extensions):
-                messagebox.showwarning("파일 형식 오류", f"지원하지 않는 파일 형식입니다.")
+                show_custom_alert(self, "파일 형식 오류", f"지원하지 않는 파일 형식입니다.", "warning")
                 return
             self.path.set(file_path)
             try:
@@ -894,12 +1504,12 @@ class FileLoaderFrame(ttk.LabelFrame):
                 self.cb_sheet["values"] = sheets
                 if sheets: self.cb_sheet.current(0)
             except Exception as e:
-                messagebox.showerror("오류", f"시트 목록을 불러올 수 없습니다:\n{e}")
+                show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
             
             event.widget.config(background="white")
             self._notify_change()
         except Exception as e:
-            messagebox.showerror("오류", f"파일을 불러올 수 없습니다:\n{str(e)}")
+            show_custom_alert(self, "오류", f"파일을 불러올 수 없습니다:\n{str(e)}", "error")
 
     def _refresh_ui(self):
         if self.mode.get() == "file":
@@ -911,10 +1521,51 @@ class FileLoaderFrame(ttk.LabelFrame):
             self.refresh_open()
         self._notify_change()
 
+    def _open_multi_dialog(self):
+        # find base keys from main app
+        base_keys = []
+        try:
+             app = self.winfo_toplevel()
+             if hasattr(app, "match_key_selector"):
+                 base_keys = app.match_key_selector.get_selected()
+        except: 
+             pass
+             
+        def apply_callback(files):
+            self.multi_files = files
+            if not files:
+                self.path.set("")
+            elif len(files) == 1:
+                # If only 1 file is selected in multi-dialog, we can show path
+                # But we should preserve 'sheet' selection
+                # To be safe, we treat it as 'batch' mode logic
+                self.path.set(files[0]['path'])
+            else:
+                # Show summary
+                names = [os.path.basename(f['path']) for f in files]
+                # self.path.set(";".join([f['path'] for f in files])) # Old way
+                self.path.set(f"다중 파일 선택됨 ({len(files)}개): {', '.join(names)}")
+            
+            # Disable sheet selector if multi files (or even 1 file from multi dialog to enforce that sheet)
+            if files:
+                self.cb_sheet["state"] = "disabled"
+                self.cb_sheet.set("다중 설정됨")
+            else:
+                self.cb_sheet["state"] = "readonly"
+            
+            self._notify_change()
+
+        MultiFileDialog(self.winfo_toplevel(), self.multi_files, apply_callback, base_keys=base_keys)
+
     def _pick_file(self):
+        # Allow single file pick only (Multi done via separate button)
         p = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx *.xls *.csv"), ("All", "*.*")])
         if not p: return
+        
         self.path.set(p)
+        self.multi_files = [] # Reset batch
+        self.cb_sheet["state"] = "readonly"
+        
         try:
             app = self.winfo_toplevel()
             sheets = []
@@ -926,13 +1577,14 @@ class FileLoaderFrame(ttk.LabelFrame):
             self.cb_sheet["values"] = sheets
             if sheets: self.cb_sheet.current(0)
         except Exception as e:
-            messagebox.showerror("오류", f"시트 목록을 불러올 수 없습니다:\n{e}")
+            show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
+        
         self._notify_change()
 
     def refresh_open(self):
         if self.mode.get() != "open": return
         if not xlwings_available():
-            messagebox.showwarning("오류", "xlwings가 필요합니다.")
+            show_custom_alert(self, "오류", "xlwings가 필요합니다.", "warning")
             return
         books = list_open_books()
         self.cb_book["values"] = books
@@ -943,6 +1595,18 @@ class FileLoaderFrame(ttk.LabelFrame):
             self.book.set("")
             self.cb_sheet["values"] = []
         self._on_book_select()
+
+    def reset(self):
+        """Resets the loader state"""
+        self.path.set("")
+        self.book.set("")
+        self.sheet.set("")
+        self.header.set(1)
+        self.cb_sheet["values"] = []
+        self.cb_book["values"] = []
+        self.clear_filters()
+        self._notify_change()
+
 
     def _on_book_select(self, event=None):
         if not self.book.get(): return
@@ -969,16 +1633,24 @@ class FileLoaderFrame(ttk.LabelFrame):
             "book": self.book.get(),
             "sheet": self.sheet.get(),
             "header": int(self.header.get()),
+            "files": getattr(self, "multi_files", []) 
         }
 
 
-class ColumnSelectorFrame(tk.LabelFrame): # Switch to tk.LabelFrame for consistent background
+class ColumnSelectorFrame(tk.Frame):
     def __init__(self, master, title, height=150, bg_color="white"):
-        super().__init__(master, text=title, bg=bg_color, padx=5, pady=5)
+        super().__init__(master, bg=bg_color, highlightbackground="#bdc3c7", highlightthickness=1)
         self.bg_color = bg_color
         
+        # Content Container (Increased padding to 15 to match FileLoaderFrame)
+        self.content = tk.Frame(self, bg=bg_color, padx=15, pady=15)
+        self.content.pack(fill="both", expand=True)
+
+        # Custom Header
+        tk.Label(self.content, text=title, font=(get_system_font()[0], 11, "bold"), bg=bg_color, fg="#2c3e50", anchor="w").pack(fill="x", pady=(0, 10))
+        
         # Tools (Select All/None)
-        tools = tk.Frame(self, bg=bg_color)
+        tools = tk.Frame(self.content, bg=bg_color)
         tools.pack(fill="x", pady=(0, 5))
         
         # Helper to create aesthetic label-buttons that match background perfectly
@@ -1006,7 +1678,7 @@ class ColumnSelectorFrame(tk.LabelFrame): # Switch to tk.LabelFrame for consiste
         create_btn(tools, "[X] 선택 해제", self.uncheck_all).pack(side="left", padx=(4, 0))
         
         # List
-        self.list = GridCheckList(self, columns=3, height=height, bg_color=self.bg_color)
+        self.list = GridCheckList(self.content, columns=3, height=height, bg_color=self.bg_color)
         self.list.pack(fill="both", expand=True)
         
     def check_all(self):
@@ -1022,109 +1694,7 @@ class ColumnSelectorFrame(tk.LabelFrame): # Switch to tk.LabelFrame for consiste
         return self.list.checked()
 
 
-class TargetAdvFilterRow(ttk.Frame):
-    def __init__(self, master, available_cols, on_remove, on_fetch_vals):
-        super().__init__(master)
-        self.on_fetch_vals = on_fetch_vals
-        
-        self.col_var = tk.StringVar()
-        self.val_var = tk.StringVar()
-        
-        # Column selection
-        self.cb_col = ttk.Combobox(self, textvariable=self.col_var, values=available_cols, state="readonly", width=15)
-        self.cb_col.pack(side="left", padx=2)
-        self.cb_col.bind("<<ComboboxSelected>>", self._on_col_change)
-        
-        # Value selection (dropdown)
-        self.cb_val = ttk.Combobox(self, textvariable=self.val_var, state="readonly", width=15)
-        self.cb_val.pack(side="left", padx=2)
-        self.cb_val.set("(값 선택)")
-        
-        # Remove button
-        btn_rem = ttk.Button(self, text="-", width=3, command=on_remove)
-        btn_rem.pack(side="left", padx=2)
 
-        # Load Values Button (Lazy Load)
-        self.btn_load = ttk.Button(self, text="▼", width=2, command=self._load_values_async)
-        self.btn_load.pack(side="left", padx=(2, 0))
-
-    def _on_col_change(self, event=None):
-        # Reset value when column changes
-        self.cb_val.set("(값 선택)")
-        self.cb_val["values"] = []
-
-    def _load_values_async(self):
-        col = self.col_var.get()
-        if not col or not self.on_fetch_vals: return
-        
-        self.cb_val.set("Loading...")
-        self.btn_load.state(["disabled"])
-        
-        import threading
-        def _task():
-            try:
-                vals = self.on_fetch_vals(col)
-                def _update():
-                    if not self.winfo_exists(): return
-                    self.btn_load.state(["!disabled"])
-                    self.cb_val["values"] = vals
-                    if vals: self.cb_val.current(0)
-                    else: self.cb_val.set("(데이터 없음)")
-                self.after(0, _update)
-            except Exception as e:
-                print(f"Error fetching values: {e}")
-                self.after(0, lambda: self.btn_load.state(["!disabled"]))
-
-        t = threading.Thread(target=_task, daemon=True)
-        t.start()
-
-    def get_filter(self):
-        col = self.col_var.get()
-        val = self.val_var.get()
-        if col and val and val != "(값 선택)" and val != "(데이터 없음)":
-            return {"col": col, "values": [val]}
-        return None
-
-
-class TargetFilterFrame(ttk.LabelFrame):
-    def __init__(self, master, get_cols_func, get_vals_func):
-        super().__init__(master, text="대상 데이터 고급 필터 (선택 사항)", padding=10)
-        self.get_cols_func = get_cols_func
-        self.get_vals_func = get_vals_func
-        self.rows: list[TargetAdvFilterRow] = []
-        
-        self.container = ttk.Frame(self)
-        self.container.pack(fill="x")
-        
-        btn_add = ttk.Button(self, text="+ 필터 추가", command=self.add_row)
-        btn_add.pack(pady=(5, 0))
-        ToolTip(btn_add, "특정 컬럼의 값으로 데이터를 필터링합니다. (예: 상태=처리완료)")
-
-    def add_row(self):
-        cols = self.get_cols_func()
-        if not cols:
-            messagebox.showwarning("오류", "먼저 대상 데이터를 불러와 주세요.")
-            return
-            
-        row = TargetAdvFilterRow(self.container, cols, lambda: self.remove_row(row), self.get_vals_func)
-        row.pack(fill="x", pady=2)
-        self.rows.append(row)
-
-    def remove_row(self, row):
-        row.destroy()
-        self.rows.remove(row)
-
-    def get_filters(self):
-        res = []
-        for r in self.rows:
-            f = r.get_filter()
-            if f: res.append(f)
-        return res
-
-    def clear(self):
-        for r in self.rows:
-            r.destroy()
-        self.rows = []
 
 
 
@@ -1178,7 +1748,15 @@ class App(BaseApp):
         self.logo_right_tk = None
         try:
             if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
+                if hasattr(sys, "_MEIPASS"):
+                    base_path = sys._MEIPASS
+                else:
+                    # macOS .app bundle: binary is in Contents/MacOS, assets in Contents/Resources
+                    exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+                    if os.path.exists(os.path.join(exe_dir, "../Resources")):
+                        base_path = os.path.abspath(os.path.join(exe_dir, "../Resources"))
+                    else:
+                        base_path = exe_dir
             else:
                 base_path = os.path.dirname(os.path.abspath(__file__))
             
@@ -1199,7 +1777,7 @@ class App(BaseApp):
             gear_path = os.path.join(base_path, "assets", "gear.png")
             if os.path.exists(gear_path):
                 gear_img = Image.open(gear_path)
-                gear_img.thumbnail((32, 32), Image.Resampling.LANCZOS)
+                gear_img.thumbnail((20, 20), Image.Resampling.LANCZOS)
                 self.gear_tk = ImageTk.PhotoImage(gear_img)
             else:
                 self.gear_tk = None
@@ -1275,7 +1853,7 @@ class App(BaseApp):
             self.top_header.create_oval(btn_x-btn_r, y_center-btn_r, btn_x+btn_r, y_center+btn_r, 
                                         fill="#e67e22", outline="white", width=2, tags=("content", "help_btn"))
             # Question Mark
-            self.top_header.create_text(btn_x, y_center, text="?", font=(get_system_font()[0], 18, "bold"), fill="white", tags=("content", "help_btn"))
+            self.top_header.create_text(btn_x, y_center, text="?", font=(get_system_font()[0], 12, "bold"), fill="white", tags=("content", "help_btn"))
             
             # Hover/Click effect binding
             self.top_header.tag_bind("help_btn", "<Button-1>", lambda e: show_feature_info())
@@ -1345,11 +1923,11 @@ class App(BaseApp):
             menu = tk.Menu(self, tearoff=0)
             
             def open_admin():
-                from tkinter import simpledialog, messagebox
+                from tkinter import simpledialog
                 from commercial_config import ADMIN_PASSWORD
                 pw = simpledialog.askstring("관리자", "관리자 비밀번호:", show="*")
                 if pw != ADMIN_PASSWORD:
-                    messagebox.showerror("오류", "비밀번호가 올바르지 않습니다.")
+                    show_custom_alert(self, "오류", "비밀번호가 올바르지 않습니다.", "error")
                     return
                 from ui import AdminPanel
                 AdminPanel(self)
@@ -1459,10 +2037,12 @@ class App(BaseApp):
         except Exception:
             pass
 
-        main = ttk.Frame(self, padding=5)  # Reduced padding for more space
+        main = ttk.Frame(self, padding=15)  # Increased padding for breathability
         
         footer = ttk.Frame(main)
-        footer.pack(side="bottom", fill="x", pady=(10, 0))
+        footer.pack(side="bottom", fill="x", pady=(20, 0))
+
+        # ... (Diagnostics and Advanced Settings skipped - no changes needed) ...
 
         # Collapsible Diagnostics Section
         diag_container = ttk.Frame(footer)
@@ -1510,16 +2090,16 @@ class App(BaseApp):
         def toggle_advanced():
             if self.opt_expanded.get():
                 opt_frame.pack_forget()
-                toggle_btn.config(text="▶ 고급 설정 (펼치기)")
+                self.toggle_btn.config(text="▶ 고급 설정 (펼치기)")
                 self.opt_expanded.set(False)
             else:
                 opt_frame.pack(side="bottom", fill="x", pady=(5, 0))
-                toggle_btn.config(text="▼ 고급 설정 (접기)")
+                self.toggle_btn.config(text="▼ 고급 설정 (접기)")
                 self.opt_expanded.set(True)
         
-        toggle_btn = ttk.Button(opt_container, text="▶ 고급 설정 (펼치기)", command=toggle_advanced)
-        toggle_btn.pack(side="top", fill="x")
-        ToolTip(toggle_btn, "오타 보정, 치환 설정 등 고급 기능을 표시/숨김합니다")
+        self.toggle_btn = ttk.Button(opt_container, text="▶ 고급 설정 (펼치기)", command=toggle_advanced)
+        self.toggle_btn.pack(side="top", fill="x")
+        ToolTip(self.toggle_btn, "오타 보정, 치환 설정 등 고급 기능을 표시/숨김합니다")
         
         # Advanced settings frame (initially hidden)
         opt_frame = ttk.Frame(opt_container, padding=10)
@@ -1570,9 +2150,9 @@ class App(BaseApp):
         mo_chk.pack(anchor="center")
         ToolTip(mo_chk, "체크 시: 매칭에 성공한 행만 저장합니다.\n해제 시: 원본 기준 데이터의 모든 행을 유지하며 매칭된 정보를 붙입니다.")
 
-        # Run button with Green styling (Matching Usage Guide)
         # Run button with Green styling (Matching Usage Guide) - Using Label for macOS color support
-        run_btn = tk.Label(
+        # Run button with Green styling (Matching Usage Guide) - Using Label for macOS color support
+        self.run_btn = tk.Label(
             footer, 
             text="매칭 실행 (RUN)", 
             bg="#16a085",  # Green/Teal
@@ -1581,8 +2161,8 @@ class App(BaseApp):
             padx=20,
             pady=15,
             cursor="hand2",
-            relief="raised",
-            borderwidth=2
+            relief="flat", # Flat modern look
+            borderwidth=0
         )
         # Use simple Button binding instead of Label if possible, but keep Label for color
         # Re-verify Run button to ensure it uses Label as previously fixed.
@@ -1593,58 +2173,46 @@ class App(BaseApp):
         # But I will confirm Run Button is distinct from preset logic.
         pass
 
-        run_btn.pack(side="bottom", fill="x", pady=(10, 5))
-        ToolTip(run_btn, "설정한 조건으로 데이터 매칭을 시작합니다\n(단축키: Ctrl+M)\n결과는 설정된 저장 위치에 생성됩니다")
+        self.run_btn.pack(side="bottom", fill="x", pady=(15, 5))
+        ToolTip(self.run_btn, "설정한 조건으로 데이터 매칭을 시작합니다\n(단축키: Ctrl+M)\n결과는 설정된 저장 위치에 생성됩니다")
         
         # Hover effect for run button
         def on_run_enter(e):
-            run_btn.config(bg="#1abc9c", relief="sunken") # Lighter green
+            if self.run_btn_enabled:
+                self.run_btn.config(bg="#1abc9c") # Lighter green
         
         def on_run_leave(e):
-            run_btn.config(bg="#16a085", relief="raised")
+            if self.run_btn_enabled:
+                self.run_btn.config(bg="#16a085")
             
         def on_run_click(e):
-            self.run()
+            if self.run_btn_enabled:
+                self.run()
         
-        run_btn.bind("<Enter>", on_run_enter)
-        run_btn.bind("<Leave>", on_run_leave)
-        run_btn.bind("<Button-1>", on_run_click)
+        self.run_btn.bind("<Enter>", on_run_enter)
+        self.run_btn.bind("<Leave>", on_run_leave)
+        self.run_btn.bind("<Button-1>", on_run_click)
+
+        # Initial State Check
+        self.run_btn_enabled = False
+        self._update_run_btn_state()
 
 
-        # --- 2. File Loaders (Top - Split Layout) ---
-        top_content = ttk.Frame(main)
-        top_content.pack(side="top", fill="x", pady=(0, 10))
+        # --- Main Body (Horizontal Layout) ---
+        main_body = ttk.Frame(main)
+        main_body.pack(side="top", fill="both", expand=True, pady=0)
 
-        # Split Container for Files
-        split_frame = ttk.Frame(top_content)
-        split_frame.pack(fill="x", expand=True)
+        # --- Left Column (Base Data) ---
+        # Grouped with Border - Increased padding
+        self.left_col = tk.Frame(main_body, bg="white", highlightbackground="#bdc3c7", highlightthickness=1, padx=20, pady=20)
+        self.left_col.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        # Left: Source Loader
-        self.src_loader = FileLoaderFrame(split_frame, "1. 기준 데이터 (Key 보유)", self.base_mode, on_change=self._load_base_cols, on_fetch_vals=self._fetch_base_unique_vals)
-        self.src_loader.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        # 1. Source Loader
+        self.src_loader = FileLoaderFrame(self.left_col, "1. 기준 데이터 (Key 보유)", self.base_mode, on_change=self._load_base_cols, on_fetch_vals=self._fetch_base_unique_vals)
+        self.src_loader.pack(side="top", fill="x", pady=(0, 15))
 
-        # Right: Target Loader
-        self.tgt_loader = FileLoaderFrame(split_frame, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode, on_change=self._load_tgt_cols, on_fetch_vals=self._fetch_tgt_unique_vals)
-        self.tgt_loader.pack(side="right", fill="both", expand=True, padx=(5, 0))
-
-        # Advanced Filter Setup
-        self.filter_win = None
-        self.tgt_filter_ui = TargetFilterFrame(None, self._get_tgt_cols, self._fetch_tgt_unique_vals)
-        
-        btn_adv_filter = ttk.Button(split_frame, text="대상 데이터 고급 필터 설정", command=self.open_advanced_filter)
-        btn_adv_filter.pack(side="bottom", anchor="e", pady=(5, 0))
-        ToolTip(btn_adv_filter, "대상 데이터에 대해 상세 필터(여러 값 동시 선택 등)를 설정합니다.")
-
-        # --- 3. Column Selectors (Middle - Split Layout) ---
-        col_content = ttk.Frame(main)
-        col_content.pack(side="top", fill="both", expand=True, pady=0)
-
-        # Left Container (Base Data)
-        left_panel = ttk.Frame(col_content)
-        left_panel.pack(side="left", fill="both", expand=True, padx=(0, 5))
-
-        # Base Presets Bar
-        base_preset_frame = ttk.Frame(left_panel)
+        # 2. Base Presets Bar
+        base_preset_frame = ttk.Frame(self.left_col)
         base_preset_frame.pack(side="top", fill="x", pady=(0, 5))
         
         ttk.Label(base_preset_frame, text="자주 쓰는 컬럼:", font=get_system_font()).pack(side="left")
@@ -1656,22 +2224,23 @@ class App(BaseApp):
         
         ttk.Button(base_preset_frame, text="저장", command=self.save_base_preset, width=4).pack(side="left", padx=2)
         ttk.Button(base_preset_frame, text="삭제", command=self.delete_base_preset, width=4).pack(side="left", padx=2)
-        
-        # Save Conditions to Excel Button
-        btn_save_sheet = ttk.Button(base_preset_frame, text="설정파일 저장", command=self.save_conditions_to_sheet, width=10)
-        btn_save_sheet.pack(side="right", padx=2)
-        ToolTip(btn_save_sheet, "현재 설정된 조건(키, 대상 컬럼)을 기준 데이터 파일에 새로운 시트로 저장합니다")
 
-        # Left: Match Key Selector - Use Light Blueish Background
-        self.match_key_selector = ColumnSelectorFrame(left_panel, "매칭 키 (Key) 선택 - 기준 데이터", bg_color="#f0f7ff")
+        # 3. Match Key Selector
+        self.match_key_selector = ColumnSelectorFrame(self.left_col, "매칭 키 (Key) 선택 - 기준 데이터", bg_color="#f0f7ff")
         self.match_key_selector.pack(side="bottom", fill="both", expand=True)
 
-        # Right Container (Presets + Target Columns)
-        right_panel = ttk.Frame(col_content)
-        right_panel.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
-        # Presets Bar (Moved here)
-        preset_frame = ttk.Frame(right_panel)
+        # --- Right Column (Target Data) ---
+        # Grouped with Border - Increased padding
+        self.right_col = tk.Frame(main_body, bg="white", highlightbackground="#bdc3c7", highlightthickness=1, padx=20, pady=20)
+        self.right_col.pack(side="left", fill="both", expand=True, padx=(10, 0))
+
+        # 1. Target Loader
+        self.tgt_loader = FileLoaderFrame(self.right_col, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode, on_change=self._load_tgt_cols, on_fetch_vals=self._fetch_tgt_unique_vals, allow_multiple=True)
+        self.tgt_loader.pack(side="top", fill="x", pady=(0, 15))
+
+        # 2. Target Presets Bar
+        preset_frame = ttk.Frame(self.right_col)
         preset_frame.pack(side="top", fill="x", pady=(0, 5))
         
         ttk.Label(preset_frame, text="자주 쓰는 컬럼:", font=get_system_font()).pack(side="left")
@@ -1684,9 +2253,38 @@ class App(BaseApp):
         ttk.Button(preset_frame, text="저장", command=self.save_preset, width=5).pack(side="left", padx=2)
         ttk.Button(preset_frame, text="삭제", command=self.delete_preset, width=5).pack(side="left", padx=2)
 
-        # Right: Target Column Selector - Use Light Greenish Background
-        self.target_col_selector = ColumnSelectorFrame(right_panel, "가져올 컬럼 선택 - 대상 데이터", bg_color="#f0fff4")
+        # 3. Target Column Selector
+        self.target_col_selector = ColumnSelectorFrame(self.right_col, "가져올 컬럼 선택 - 대상 데이터", bg_color="#f0fff4")
         self.target_col_selector.pack(side="bottom", fill="both", expand=True)
+
+        # --- Selection Feedback Logic ---
+        def highlight_left(event=None):
+            # Left Active (Blue), Right Inactive (Gray)
+            self.left_col.config(highlightbackground="#3498db", highlightthickness=2)
+            self.right_col.config(highlightbackground="#bdc3c7", highlightthickness=1)
+            
+        def highlight_right(event=None):
+            # Right Active (Orange), Left Inactive (Gray)
+            self.right_col.config(highlightbackground="#e67e22", highlightthickness=2)
+            self.left_col.config(highlightbackground="#bdc3c7", highlightthickness=1)
+            
+        # Bind click events to columns and all children recursively
+        def bind_recursive(widget, command):
+            try:
+                widget.bind("<Button-1>", command, add="+")
+            except:
+                pass
+            for child in widget.winfo_children():
+                bind_recursive(child, command)
+                
+        # Initial binding (using after to ensure children are created? No, recursion handles current children)
+        # We might need to handle dynamically created children later, but for now this covers init state.
+        bind_recursive(self.left_col, highlight_left)
+        bind_recursive(self.right_col, highlight_right)
+        
+        # Also expose methods for later use if needed
+        self._highlight_left = highlight_left
+        self._highlight_right = highlight_right
         
         # Force menu update
         def force_menu():
@@ -1760,7 +2358,7 @@ class App(BaseApp):
                 top.clipboard_clear()
                 top.clipboard_append("3333-03-9648364")
                 top.update()
-                messagebox.showinfo("완료", "계좌번호가 복사되었습니다!", parent=top)
+                show_custom_alert(top, "완료", "계좌번호가 복사되었습니다!", "success")
             
             # Copy Button (Label for macOS color support)
             btn_copy_acc = tk.Label(payment_frame, text="계좌번호 복사", bg="#7f8c8d", fg="white", 
@@ -1784,7 +2382,7 @@ class App(BaseApp):
                 top.clipboard_clear()
                 top.clipboard_append("bough38@gmail.com")
                 top.update()
-                messagebox.showinfo("완료", "이메일 주소가 복사되었습니다!", parent=top)
+                show_custom_alert(top, "완료", "이메일 주소가 복사되었습니다!", "success")
             
             # Copy Email Button
             btn_copy_email = tk.Label(contact_frame, text="이메일 복사", bg="#7f8c8d", fg="white", 
@@ -1836,23 +2434,56 @@ class App(BaseApp):
             try:
                 # Handle path for frozen app (PyInstaller)
                 if getattr(sys, 'frozen', False):
-                    base_path = sys._MEIPASS
+                    if hasattr(sys, "_MEIPASS"):
+                        base_path = sys._MEIPASS
+                    else:
+                        # macOS .app bundle logic
+                        exe_dir = os.path.dirname(os.path.abspath(sys.executable))
+                        if os.path.exists(os.path.join(exe_dir, "../Resources")):
+                            base_path = os.path.abspath(os.path.join(exe_dir, "../Resources"))
+                        else:
+                            base_path = exe_dir
                 else:
                     base_path = os.path.dirname(os.path.abspath(__file__))
                 
-                guide_path = os.path.join(base_path, "usage_guide.html")
+                guide_path = os.path.join(base_path, "seller_assets", "user_manual_v1.0.0.html")
                 
                 if not os.path.exists(guide_path):
-                     guide_path = os.path.abspath("usage_guide.html")
+                     # Fallback to local if not in seller_assets (dev mode)
+                     guide_path = os.path.abspath("seller_assets/user_manual_v1.0.0.html")
+                     if not os.path.exists(guide_path):
+                         # Last resort: try root
+                         guide_path = os.path.abspath("user_manual_v1.0.0.html")
 
                 webbrowser.open(f"file://{guide_path}")
             except Exception as ex:
-                messagebox.showinfo("안내", f"사용 가이드 (usage_guide.html) 파일을 찾을 수 없습니다.\n{ex}")
+                show_custom_alert(self, "안내", f"사용 가이드 (user_manual_v1.0.0.html) 파일을 찾을 수 없습니다.\n{ex}", "warning")
+
+        # Onboarding Guide Button
+        start_guide_btn = tk.Label(
+            c_footer,
+            text="가이드 보기",
+            bg="#9b59b6",  # Purple
+            fg="white",
+            font=(get_system_font()[0], 11, "bold"),
+            padx=15,
+            pady=8,
+            cursor="hand2",
+            relief="raised",
+            borderwidth=2
+        )
+        start_guide_btn.pack(side="right", padx=(0, 10), pady=10)
+        start_guide_btn.bind("<Button-1>", lambda e: self.guide_manager.start_guide())
+        
+        def on_enter_guide_start(e): start_guide_btn.config(bg="#8e44ad", relief="sunken")
+        def on_leave_guide_start(e): start_guide_btn.config(bg="#9b59b6", relief="raised")
+        start_guide_btn.bind("<Enter>", on_enter_guide_start)
+        start_guide_btn.bind("<Leave>", on_leave_guide_start)
 
         guide_btn = tk.Label(
             c_footer,
             text="사용방법",
-            bg="#16a085",
+            bg="#f39c12",  # Orange for distinction
             fg="white",
             font=(get_system_font()[0], 11, "bold"),
             padx=15,
@@ -1864,8 +2495,8 @@ class App(BaseApp):
         guide_btn.pack(side="right", padx=(0, 0), pady=10)
         guide_btn.bind("<Button-1>", open_usage_guide_click)
         
-        def on_enter_guide(e): guide_btn.config(bg="#138d75", relief="sunken")
-        def on_leave_guide(e): guide_btn.config(bg="#16a085", relief="raised")
+        def on_enter_guide(e): guide_btn.config(bg="#f1c40f", relief="sunken") # Yellow-Orange hover
+        def on_leave_guide(e): guide_btn.config(bg="#f39c12", relief="raised")
         guide_btn.bind("<Enter>", on_enter_guide)
         guide_btn.bind("<Leave>", on_leave_guide)
 
@@ -1892,6 +2523,17 @@ class App(BaseApp):
         self.after(100, lambda: self.attributes('-topmost', False))
         self.focus_force()
 
+        # Initialize Guide Manager
+        self.guide_manager = GuideManager(self)
+        self.guide_manager.set_steps([
+            {"widget": "src_loader", "text": "1단계: 기준 데이터 파일을 이곳에 드래그하거나 열어서 불러오세요."},
+            {"widget": "tgt_loader", "text": "2단계: 대상 데이터 파일(정보를 가져올 파일)을 불러오세요."},
+            {"widget": "match_key_selector", "text": "3단계: 두 파일에서 공통된 '키(Key)' 컬럼을 선택하세요.\n(예: 이름, 전화번호, 주민번호 등)"},
+            {"widget": "target_col_selector", "text": "4단계: 대상 파일에서 내 기준 데이터로 가져오고 싶은 컬럼을 선택하세요."},
+            {"widget": "toggle_btn", "text": "5단계: 고급 설정 - 오타 보정, 데이터 치환, 색상 강조 등 다양한 옵션을 활용해보세요."},
+            {"widget": "run_btn", "text": "6단계: 모든 설정이 끝나면 매칭 실행 버튼을 누르세요!"},
+        ])
+
     def _log(self, msg: str):
         self.log_txt.config(state="normal")
         self.log_txt.insert("end", f"- {msg}\n")
@@ -1899,28 +2541,58 @@ class App(BaseApp):
         self.log_txt.config(state="disabled")
         self.update_idletasks()
 
-    def open_advanced_filter(self):
-        """Open advanced filter settings in a popup window"""
-        if self.filter_win is None or not self.filter_win.winfo_exists():
-            self.filter_win = tk.Toplevel(self)
-            self.filter_win.title("대상 데이터 고급 필터 설정")
-            self.filter_win.geometry("600x400")
-            self.filter_win.transient(self)
+    def _update_run_btn_state(self):
+        """Enable Run button only if both Base and Target files are loaded"""
+        try:
+            b_ready = False
+            if hasattr(self, 'src_loader'):
+                b_cfg = self.src_loader.get_config()
+                if (b_cfg["type"] == "file" and b_cfg["path"]) or (b_cfg["type"] == "open" and b_cfg["book"]):
+                    b_ready = True
             
-            # Re-parent or re-create the filter UI inside the popup
-            container = ttk.Frame(self.filter_win, padding=20)
-            container.pack(fill="both", expand=True)
+            t_ready = False
+            if hasattr(self, 'tgt_loader'):
+                t_cfg = self.tgt_loader.get_config()
+                if (t_cfg["type"] == "file" and t_cfg["path"]) or (t_cfg["type"] == "open" and t_cfg["book"]):
+                    t_ready = True
             
-            # Clear and Re-create for safety on re-open
-            for child in container.winfo_children(): child.destroy()
+            if b_ready and t_ready:
+                self.run_btn_enabled = True
+                self.run_btn.config(bg="#16a085", cursor="hand2", fg="white")
+            else:
+                self.run_btn_enabled = False
+                self.run_btn.config(bg="#95a5a6", cursor="arrow", fg="#ecf0f1") # Grayed out
+        except:
+            pass
+
+
+
+    def reset_all(self):
+        """Resets all inputs, configurations, and internal state"""
+        if not show_custom_confirm(self, "초기화", "모든 파일과 설정을 초기화하시겠습니까?"):
+            return
             
-            self.tgt_filter_ui = TargetFilterFrame(container, self._get_tgt_cols, self._fetch_tgt_unique_vals)
-            self.tgt_filter_ui.pack(fill="both", expand=True)
+        # 1. Reset Loaders
+        if hasattr(self, 'src_loader'):
+            self.src_loader.reset()
+        if hasattr(self, 'tgt_loader'):
+            self.tgt_loader.reset()
             
-            # Add a close button at bottom
-            ttk.Button(container, text="확인 (적용)", command=self.filter_win.destroy).pack(pady=(10, 0))
-        else:
-            self.filter_win.lift()
+        # 2. Reset Selectors
+        if hasattr(self, 'match_key_selector'):
+            self.match_key_selector.set_items([])
+        if hasattr(self, 'target_col_selector'):
+            self.target_col_selector.set_items([])
+            
+        # 3. Clear Caches
+        self._clear_unique_cache()
+        
+        # 4. Reset Options (Optional - user might want to keep settings, but "Reset All" implies factory state for session)
+        # Keeping options (Fuzzy, Color etc) is usually better UX unless requested otherwise.
+        
+        # 5. Update UI
+        self._update_run_btn_state()
+        show_custom_alert(self, "완료", "모든 설정이 초기화되었습니다.", "success")
 
     def open_replacer(self):
         if self.replacer_win is None or not self.replacer_win.winfo_exists():
@@ -1947,7 +2619,7 @@ class App(BaseApp):
         # 2. Validate
         valid, info = validate_key(key)
         if not valid:
-            messagebox.showerror("등록 실패", "유효하지 않은 라이선스 키입니다.")
+            show_custom_alert(self, "등록 실패", "유효하지 않은 라이선스 키입니다.", "error")
             return
 
         # 3. Save
@@ -1961,10 +2633,10 @@ class App(BaseApp):
             # though current runtime specific limits might not update until restart depending on logic.
             # But we can update the license_info dict which is used in run().
             
-            messagebox.showinfo("등록 성공", f"라이선스가 등록되었습니다.\n타입: {info.get('type')}\n만료: {info.get('expiry')}")
+            show_custom_alert(self, "등록 성공", f"라이선스가 등록되었습니다.\n타입: {info.get('type')}\n만료: {info.get('expiry')}", "success")
             
         except Exception as e:
-            messagebox.showerror("오류", f"라이선스 저장 중 오류가 발생했습니다.\n{e}")
+            show_custom_alert(self, "오류", f"라이선스 저장 중 오류가 발생했습니다.\n{e}", "error")
 
     # ----------------
     # Preset (columns)
@@ -2010,7 +2682,7 @@ class App(BaseApp):
     def save_preset(self):
         items = self.target_col_selector.get_selected()
         if not items:
-            messagebox.showwarning("경고", "저장할 컬럼을 하나 이상 선택하세요.")
+            show_custom_alert(self, "경고", "저장할 컬럼을 하나 이상 선택하세요.", "warning")
             return
         name = simpledialog.askstring("설정 저장", "이 설정의 이름을 입력하세요:\n(예: 급여대장용)")
         if not name: return
@@ -2020,11 +2692,11 @@ class App(BaseApp):
         self._save_presets()
         self.load_presets()
         self.cb_preset.set(name)
-        messagebox.showinfo("저장 완료", f"[{name}] 설정이 저장되었습니다.")
+        show_custom_alert(self, "저장 완료", f"[{name}] 설정이 저장되었습니다.", "success")
 
     def delete_preset(self):
         name = self.cb_preset.get()
-        if name in self.target_presets and messagebox.askyesno("삭제 확인", f"정말 [{name}] 설정을 삭제하시겠습니까?"):
+        if name in self.target_presets and show_custom_confirm(self, "삭제 확인", f"정말 [{name}] 설정을 삭제하시겠습니까?"):
             del self.target_presets[name]
             self._save_presets()
             self.load_presets()
@@ -2041,7 +2713,7 @@ class App(BaseApp):
     def save_base_preset(self):
         items = self.match_key_selector.get_selected()
         if not items:
-            messagebox.showwarning("경고", "저장할 키 컬럼을 하나 이상 선택하세요.")
+            show_custom_alert(self, "경고", "저장할 키 컬럼을 하나 이상 선택하세요.", "warning")
             return
         name = simpledialog.askstring("키 설정 저장", "이 키 설정의 이름을 입력하세요:\n(예: 주민번호기준)")
         if not name: return
@@ -2051,11 +2723,11 @@ class App(BaseApp):
         self._save_presets()
         self.load_presets()
         self.cb_preset_base.set(name)
-        messagebox.showinfo("저장 완료", f"[{name}] 키 설정이 저장되었습니다.")
+        show_custom_alert(self, "저장 완료", f"[{name}] 키 설정이 저장되었습니다.", "success")
 
     def delete_base_preset(self):
         name = self.cb_preset_base.get()
-        if name in self.base_presets and messagebox.askyesno("삭제 확인", f"정말 [{name}] 키 설정을 삭제하시겠습니까?"):
+        if name in self.base_presets and show_custom_confirm(self, "삭제 확인", f"정말 [{name}] 키 설정을 삭제하시겠습니까?"):
             del self.base_presets[name]
             self._save_presets()
             self.load_presets()
@@ -2068,103 +2740,7 @@ class App(BaseApp):
             cnt = self.match_key_selector.list.set_checked_items(items)
             self._log(f"기준 프리셋 [{name}] 적용됨 ({cnt}개 항목 선택)")
             
-    # --- Save Conditions to Excel ---
-    def save_conditions_to_sheet(self):
-        """Save current selection (keys, targets) to a new sheet in Base Data file"""
-        b_cfg = self.src_loader.get_config()
-        if not b_cfg["path"] and not b_cfg["book"]:
-            messagebox.showwarning("경고", "기준 데이터가 로드되지 않았습니다.")
-            return
 
-        keys = self.match_key_selector.get_selected()
-        targets = self.target_col_selector.get_selected()
-        
-        if not keys and not targets:
-            messagebox.showwarning("경고", "저장할 설정(키 또는 대상 컬럼)이 없습니다.")
-            return
-            
-        try:
-            from openpyxl import load_workbook, Workbook
-            import pandas as pd
-            import datetime
-            
-            # Prepare data
-            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            data_row = [
-                timestamp,
-                ",".join(keys),
-                ",".join(targets),
-                str(self.opt_fuzzy.get()),
-                str(self.opt_color.get())
-            ]
-            header = ["Timestamp", "Match Keys", "Target Columns", "Fuzzy Option", "Color Option"]
-            sheet_name = "EasyMatch_Conditions"
-
-            # Function to append data using pandas for simplicity if possible, or openpyxl
-            # Since we want to append to existing file or create new sheet.
-            
-            file_path = b_cfg["path"] if b_cfg["type"] == "file" else None
-            
-            if file_path and os.path.exists(file_path):
-                # File mode
-                try:
-                    wb = load_workbook(file_path)
-                    if sheet_name not in wb.sheetnames:
-                        ws = wb.create_sheet(sheet_name)
-                        ws.append(header)
-                    else:
-                        ws = wb[sheet_name]
-                        
-                    ws.append(data_row)
-                    wb.save(file_path)
-                    messagebox.showinfo("저장 완료", f"기준 데이터 파일에 [{sheet_name}] 시트가 추가/업데이트 되었습니다.")
-                except Exception as e:
-                    messagebox.showerror("저장 실패", f"파일 저장 중 오류: {e}\n(파일이 열려있다면 닫고 시도하세요)")
-            
-            elif b_cfg["type"] == "open" and b_cfg["book"]:
-                # Open Excel mode (xlwings)
-                try:
-                    import xlwings as xw
-                    app = xw.apps.active
-                    wb = None
-                    try:
-                        wb = xw.books[b_cfg["book"]]
-                    except:
-                        # Try to find by name
-                        for b in xw.books:
-                            if b.name == b_cfg["book"]:
-                                wb = b
-                                break
-                    if not wb:
-                        raise Exception("엑셀 파일을 찾을 수 없습니다.")
-                        
-                    # Check sheet
-                    sheet_exists = False
-                    for s in wb.sheets:
-                        if s.name == sheet_name:
-                            sheet_exists = True
-                            break
-                    
-                    if not sheet_exists:
-                        ws = wb.sheets.add(sheet_name)
-                        ws.range("A1").value = header
-                    else:
-                        ws = wb.sheets[sheet_name]
-                    
-                    # Find next empty row
-                    # Simple approach: count used range
-                    last_row = ws.range(f"A{ws.cells.last_cell.row}").end('up').row
-                    ws.range(f"A{last_row+1}").value = data_row
-                    
-                    messagebox.showinfo("저장 완료", f"활성 엑셀 파일에 [{sheet_name}] 시트가 업데이트 되었습니다.")
-                    
-                except Exception as e:
-                    messagebox.showerror("저장 실패", f"열려있는 엑셀 제어 실패: {e}")
-            else:
-                 messagebox.showwarning("오류", "파일을 찾을 수 없거나 저장할 수 없는 상태입니다.")
-
-        except Exception as e:
-            messagebox.showerror("오류", f"저장 중 예기치 않은 오류 발생: {e}")
     
     # -------------
     # Header loaders
@@ -2201,6 +2777,7 @@ class App(BaseApp):
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
             
             self.match_key_selector.set_items(cols)
+            self._update_run_btn_state()
         except Exception as e:
             self._log(f"기준 헤더 로드 실패: {e}")
 
@@ -2209,6 +2786,15 @@ class App(BaseApp):
         cfg = self.tgt_loader.get_config()
         if cfg["type"] == "file" and not cfg["path"]: return
         if cfg["type"] == "open" and not cfg["book"]: return
+        
+        # Batch Mode Check
+        if cfg["type"] == "file" and ";" in str(cfg["path"]):
+            # In batch mode, we can't easily show columns from all files.
+            # We will disable the selector or clear it.
+            self.target_col_selector.set_items([])
+            self._update_run_btn_state()
+            return
+
         try:
             if cfg["type"] == "file":
                 cols = self._fetch_headers(cfg["path"], cfg["sheet"], cfg["header"])
@@ -2216,6 +2802,7 @@ class App(BaseApp):
                 cols = read_header_open(cfg["book"], cfg["sheet"], cfg["header"])
             self.target_col_selector.set_items(cols)
             self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
+            self._update_run_btn_state()
         except Exception as e:
             self._log(f"대상 헤더 로드 실패: {e}")
 
@@ -2296,11 +2883,17 @@ class App(BaseApp):
             keys = self.match_key_selector.get_selected()
             take = self.target_col_selector.get_selected()
 
+            # Check Batch Mode
+            # Improved: also check if 'files' list exists (from MultiFileDialog)
+            is_batch = (t_cfg["type"] == "file" and ";" in str(t_cfg["path"])) or (len(t_cfg.get("files", [])) > 0)
+
             if not keys:
-                messagebox.showwarning("경고", "매칭할 키(Key)를 하나 이상 선택하세요.")
+                show_custom_alert(self, "경고", "매칭할 키(Key)를 하나 이상 선택하세요.", "warning")
                 return
-            if not take:
-                messagebox.showwarning("경고", "가져올 컬럼을 선택하세요.")
+            
+            # Skip validation for 'take' columns in batch mode (we take all)
+            if not take and not is_batch:
+                show_custom_alert(self, "경고", "가져올 컬럼을 선택하세요.", "warning")
                 return
 
             options = {
@@ -2324,9 +2917,7 @@ class App(BaseApp):
             if tgt_f:
                 applied_filters["target_multi"] = tgt_f
             
-            target_adv = self.tgt_filter_ui.get_filters()
-            if target_adv:
-                applied_filters["target_advanced"] = target_adv
+
 
             # Create progress dialog
             self._show_progress_dialog(b_cfg, t_cfg, keys, take, options, active_replace_rules, applied_filters)
@@ -2343,7 +2934,7 @@ class App(BaseApp):
                     "- 파일 모드로 사용 가능"
                 )
 
-            messagebox.showerror("오류", f"실행 중 오류:\n{msg}")
+            show_custom_alert(self, "오류", f"실행 중 오류:\n{msg}", "error")
             self._log(f"Error: {msg}")
 
     def _show_progress_dialog(self, b_cfg, t_cfg, keys, take, options, active_replace_rules, filters):
@@ -2508,10 +3099,10 @@ class App(BaseApp):
                             if preview is not None:
                                 show_preview_dialog(self, out_path, summary, preview)
                             else:
-                                messagebox.showinfo("성공", msg, parent=self)
+                                show_custom_alert(self, "성공", msg, "success")
                         except:
                             # Fallback if parent invalid, though self should be valid
-                            messagebox.showinfo("성공", msg)
+                            show_custom_alert(None, "성공", msg, "success")
 
                 self.after(500, close_and_show_result)
                 
@@ -2545,9 +3136,9 @@ class App(BaseApp):
                     
                     # Force parent to main window (self) to ensure visibility
                     try:
-                        messagebox.showerror("오류", f"실행 중 오류:\n{msg}", parent=self)
+                        show_custom_alert(self, "오류", f"실행 중 오류:\n{msg}", "error")
                     except:
-                        messagebox.showerror("오류", f"실행 중 오류:\n{msg}")
+                        show_custom_alert(None, "오류", f"실행 중 오류:\n{msg}", "error")
 
                     self._log(f"Error: {msg}")
                 

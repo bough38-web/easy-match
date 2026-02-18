@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_NAME="ExcelMatcher_v1.0.19"
+APP_NAME="ExcelMatcher_v1.0.0"
 
 echo "[BUILD] $APP_NAME macOS 빌드 시작..."
 
@@ -29,8 +29,8 @@ pip install pyinstaller --upgrade
 # Build using CLI arguments (avoiding Spec file Unicode path issues)
 echo "[BUILD] PyInstaller 실행 중 (CLI Mode)..."
 pyinstaller --noconfirm --windowed --clean \
-    --name "ExcelMatcher_v1.0.19" \
-    --add-data "usage_guide.html:." \
+    --name "ExcelMatcher_v1.0.0" \
+    --add-data "seller_assets/user_manual_v1.0.0.html:seller_assets" \
     --add-data "assets:assets" \
     --add-data "presets.json:." \
     --add-data "replacements.json:." \

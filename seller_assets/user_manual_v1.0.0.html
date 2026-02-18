@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy Match v1.0.0 | 사용자 마스터 가이드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --text: #334155;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: -40px auto 60px;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+
+        .alert {
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border: 1px solid #dcfce7;
+            color: #166534;
+        }
+
+        h2 {
+            border-left: 5px solid var(--primary);
+            padding-left: 15px;
+            margin-top: 0;
+        }
+
+        h3 {
+            color: var(--primary);
+        }
+
+        .steps {
+            padding-left: 20px;
+        }
+
+        .steps li {
+            margin-bottom: 15px;
+        }
+
+        .img-container {
+            text-align: center;
+            margin: 24px 0;
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .img-container img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .footer {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+            padding-bottom: 40px;
+        }
+
+        .download-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: var(--white);
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .btn:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+        }
+
+        @media print {
+
+            .download-buttons,
+            .header,
+            .footer {
+                display: none !important;
+            }
+
+            .container {
+                margin: 0;
+                width: 100%;
+                max-width: none;
+                box-shadow: none;
+            }
+
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+                break-inside: avoid;
+            }
+
+            body {
+                background: white;
+            }
+        }
+    </style>
+    <script>
+        function downloadHTML() {
+            const content = document.documentElement.outerHTML;
+            const blob = new Blob([content], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Easy_Match_User_Manual.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</head>
+
+<body>
+
+    <div class="header">
+        <h1>Easy Match v1.0.0 가이드</h1>
+        <p>함수 없이 1분 만에 끝내는 스마트 데이터 매칭</p>
+    </div>
+
+    <div class="container">
+        <div class="download-buttons">
+            <button class="btn" onclick="downloadHTML()">
+                <span>📥 HTML 다운로드</span>
+            </button>
+            <button class="btn btn-primary" onclick="window.print()">
+                <span>🖨️ PDF 저장 / 인쇄</span>
+            </button>
+        </div>
+        <!-- 🚨 필수: 윈도우 보안 경고 해결법 -->
+        <div class="card" style="border-top: 6px solid var(--danger);">
+            <h2 style="color: var(--danger); border-left:none; padding-left:0;">🛡️ 윈도우 보안 경고 시 필독</h2>
+            <p>프로그램 실행 시 <strong>"Windows의 PC 보호"</strong> 또는 <strong>"게시자를 확인할 수 없습니다"</strong>라는 파란색 창이 뜨나요? 이는 검증되지
+                않은 개인 개발자 앱에 대한 윈도우의 기본 방어 기제입니다.</p>
+
+            <div class="alert alert-warning">
+                <div>
+                    <strong>해결 방법:</strong><br>
+                    1단계: 파란색 경고창에서 <strong>[추가 정보]</strong> 글자를 클릭하세요.<br>
+                    2단계: 하단에 나타나는 <strong>[실행]</strong> 버튼을 누르면 정상적으로 시작됩니다.
+                </div>
+            </div>
+        </div>
+
+        <!-- ✨ 꿀팁: 열려있는 엑셀 인식 -->
+        <div class="card" style="border-top: 6px solid var(--success);">
+            <h2 style="color: var(--success); border-left:none; padding-left:0;">🚀 업무가 3배 빨라지는 꿀팁</h2>
+            <p>Easy Match는 <strong>"현재 열려있는 엑셀 인식"</strong> 기능을 지원합니다.</p>
+            <ul class="steps">
+                <li>파일을 매번 폴더에서 찾지 마세요.</li>
+                <li>작업 중인 엑셀 파일을 그냥 열어둔 상태에서 Easy Match를 켭니다.</li>
+                <li><strong>'현재 열려있는 워크북 인식'</strong> 메뉴를 클릭하면, 불러온 파일 리스트가 즉시 나타납니다.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>01. 기본 사용법</h2>
+            <div class="img-container">
+                <img src="./main_ui.png" alt="Main UI">
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 8px;">[프로그램 메인 인터페이스]</p>
+            </div>
+            <ol class="steps">
+                <li><strong>파일 로드</strong>: 기준 파일(Source)과 대상 파일(Target)을 드래그하여 넣습니다.</li>
+                <li><strong>항목 선택</strong>: 두 파일이 공통으로 가진 항목(사번, 이름, ID 등)을 매칭 키로 지정합니다.</li>
+                <li><strong>데이터 체크</strong>: 대상 파일에서 기준 파일로 가져오고 싶은 열(전화번호, 주소 등)을 선택합니다.</li>
+                <li><strong>매칭 시작</strong>: 하단의 버튼을 클릭하면 즉시 데이터가 결합됩니다.</li>
+            </ol>
+        </div>
+
+        <div class="card">
+            <h2>02. 프로그램 각부 명칭 및 기능</h2>
+            <p>Easy Match 프로그램의 주요 화면 구성 요소와 기능에 대한 설명입니다.</p>
+
+            <div class="img-container">
+                <img src="./main_ui.png" alt="Main UI Explanation">
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 8px;">[프로그램 주요 기능 영역]</p>
+            </div>
+
+            <ul class="steps">
+                <li>
+                    <strong>① 기준 파일 (Source File)</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - <strong>3가지 방법으로 파일을 불러올 수 있습니다:</strong><br>
+                        &nbsp;&nbsp;1. <strong>클릭하여 찾기</strong>: 영역을 클릭하여 폴더에서 파일을 선택합니다.<br>
+                        &nbsp;&nbsp;2. <strong>드래그 앤 드롭</strong>: 엑셀 파일을 마우스로 끌어와서 이 영역에 놓습니다.<br>
+                        &nbsp;&nbsp;3. <strong>열린 시트 인식</strong>: 이미 엑셀 파일이 열려있다면, 상단 메뉴의 [현재 열려있는 워크북 인식]을 클릭하여 즉시
+                        불러옵니다.
+                    </p>
+                </li>
+                <li>
+                    <strong>② 대상 파일 (Target File)</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - 대상 파일도 기준 파일과 동일하게 <strong>클릭, 드래그 앤 드롭, 열린 시트 인식</strong> 3가지 방법으로 불러올 수 있습니다.<br>
+                        - 기준 파일의 데이터와 매칭할 전체 데이터가 담긴 파일입니다.
+                    </p>
+                </li>
+                <li>
+                    <strong>③ 매칭 키 설정 (Matching Key)</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - 두 파일을 연결할 공통 고유값(예: 사번, 전화번호, ID 등)을 선택합니다.<br>
+                        - <em>Tip: 중복되지 않는 고유한 값을 사용할수록 정확도가 높아집니다.</em>
+                    </p>
+                </li>
+                <li>
+                    <strong>④ 가져올 데이터 선택 (Output Data)</strong>
+                    <div style="margin: 8px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - <strong>기본 선택</strong>: 가져오고 싶은 컬럼의 체크박스를 선택합니다.<br>
+                        - <strong>고급 필터 기능 (조건부 값 가져오기)</strong>:
+                        <ul style="margin: 5px 0 10px 0; padding-left: 20px; font-size: 0.9rem;">
+                            <li>
+                                <strong>값 로드 (화살표 <code>-></code> 버튼)</strong>: 해당 버튼을 누르면 그 컬럼에 존재하는 고유한 값(중복 제거)들을
+                                리스트로 불러와 선택할 수 있습니다.
+                            </li>
+                            <li>
+                                <strong>조건 설정 (IF 함수 기능)</strong>: 특정 조건에 맞는 데이터만 가져오거나 필터링할 수 있습니다.<br>
+                                예) <em>월정료 >= 30,000</em> (3만원 이상인 경우만)<br>
+                                예) <em>지역 = "서울"</em> (서울 지역 데이터만)
+                            </li>
+                            <li>
+                                <strong>다중 조건</strong>: 여러 컬럼에 조건을 걸면 모두 만족하는(AND) 데이터만 매칭됩니다.
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+                <li>
+                    <strong>⑤ 실행 및 결과 (Action & Result)</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - [매칭 시작] 버튼을 눌러 작업을 수행합니다.<br>
+                        - 작업 완료 후 결과 요약(성공/실패 건수)이 표시되며, 결과 파일을 저장할 수 있습니다.
+                    </p>
+                    <div class="img-container">
+                        <img src="./result_preview.png" alt="Result Preview">
+                        <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 8px;">[매칭 결과 미리보기 화면]</p>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>03. 데이터 치환 (Data Replacement)</h2>
+            <p>매칭 전, 대상 파일(Target)의 특정 데이터를 원하는 값으로 자동 변경하는 기능입니다.
+                <br>(예: "강원본부" -> "강북/강원본부"로 통일하여 매칭)
+            </p>
+            <!-- 
+            <div class="img-container">
+                <img src="./sub_ui_replacement.png" alt="Data Replacement UI" onerror="this.style.display='none'">
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 8px;">[데이터 치환 규칙 설정 화면]</p>
+            </div> 
+            -->
+            <ol class="steps">
+                <li><strong>메뉴 실행</strong>: 상단 메뉴의 <strong>[도구] - [데이터 치환 규칙 설정]</strong>을 클릭합니다.</li>
+                <li><strong>규칙 추가</strong>:
+                    <ul style="margin: 5px 0 10px 0; font-size: 0.95rem; color: #64748b;">
+                        <li><strong>대상 컬럼명</strong>: 값을 변경할 엑셀 컬럼 헤더 이름을 정확히 입력합니다.</li>
+                        <li><strong>변경 전 (Old)</strong>: 바꾸고 싶은 기존 값을 입력합니다.</li>
+                        <li><strong>변경 후 (New)</strong>: 최종적으로 변경될 값을 입력합니다.</li>
+                        <li><strong>[추가/수정]</strong> 버튼을 눌러 리스트에 등록합니다.</li>
+                    </ul>
+                </li>
+                <li><strong>프리셋 저장 (선택)</strong>: 자주 쓰는 규칙은 상단의 <strong>[저장 (Save)]</strong> 버튼을 눌러 이름을 지정해 두면, 다음에 불러와서
+                    사용할 수 있습니다.</li>
+                <li><strong>적용</strong>: <strong>[닫기 (적용)]</strong> 버튼을 누르면 설정된 규칙이 매칭 시 자동으로 적용됩니다.</li>
+            </ol>
+            <div class="alert alert-warning" style="margin-top: 15px;">
+                <strong>주의:</strong> 치환 규칙은 <strong>매칭 작업(Join)이 수행될 때</strong> 적용됩니다. 원본 파일 자체를 수정하지는 않습니다.
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>04. 다중 파일 일괄 매칭 (Advanced Batch)</h2>
+            <p>수십 개의 파일을 일일이 매칭할 필요 없이, 여러 대상 파일을 한 번에 불러와 기준 데이터에 통합(Merge)할 수 있습니다.</p>
+
+            <div class="img-container">
+                <img src="./advanced_batch_ui.png" alt="Advanced Batch UI">
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 8px;">[다중 파일 선택 및 설정 상세 화면]</p>
+            </div>
+
+            <ul class="steps">
+                <li>
+                    <strong>① 다중 선택 실행</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - 대상 데이터 영역의 <strong>[다중 선택]</strong> 버튼을 클릭하여 전용 관리 창을 엽니다.<br>
+                        - <strong>[+ 파일 추가]</strong>를 눌러 매칭할 모든 파일들을 목록에 넣습니다.
+                    </p>
+                </li>
+                <li>
+                    <strong>② 파일별 상세 설정</strong>
+                    <div style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - <strong>시트/헤더</strong>: 파일마다 데이터가 시작되는 시트와 헤더 위치를 개별 지정할 수 있습니다.<br>
+                        - <strong>매핑 (Mapping)</strong>: 파일의 컬럼명이 기준 데이터와 다를 경우, 매핑 버튼을 눌러 이름을 일치시킵니다.<br>
+                        - <strong>컬럼 선택</strong>: 각 파일에서 결과물에 포함하고 싶은 항목만 골라낼 수 있습니다. (설정됨: 컬럼(n) 표시)
+                    </div>
+                </li>
+                <li>
+                    <strong>③ 통합 컬럼 선택 (Convenience)</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - <strong>[통합 컬럼 선택]</strong> 버튼을 누르면 모든 파일에 공통으로 존재하는 컬럼들을 한 번에 골라 일괄 적용할 수 있어 매우 편리합니다.
+                    </p>
+                </li>
+                <li>
+                    <strong>④ 병합 매칭 수행</strong>
+                    <p style="margin: 5px 0 0 0; font-size: 0.95rem; color: #64748b;">
+                        - <strong>[적용 (Apply)]</strong>를 누른 후 메인 화면에서 <strong>[매칭 실행]</strong>을 클릭하면, 모든 파일의 데이터가 기준 파일
+                        우측으로 순차적으로 결합됩니다.
+                    </p>
+                </li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>04. 자주 묻는 질문 (FAQ)</h2>
+            <h3>Q: 데이터 매칭이 0건으로 나옵니다.</h3>
+            <p>A: 매칭 키로 설정한 데이터가 서로 정확히 일치하는지 확인해 주세요. (예: 공백 포함 여부 등) 이지매치는 자동 공백 제거 기능을 제공하므로 대부분의 경우 문제없이 작동합니다.
+            </p>
+
+            <h3>Q: 개인 정보가 유출될 걱정은 없나요?</h3>
+            <p>A: 이지매치는 모든 작업을 고객님의 **내부 PC**에서만 수행합니다. 어떠한 데이터도 외부 서버로 전송하지 않으므로 안심하고 사용하셔도 됩니다.</p>
+
+            <h3>Q: 맥(macOS)에서도 사용 가능한가요?</h3>
+            <p>A: 네, 전용 Mac 버전을 설치하신 후 '마우스 우클릭 -> 열기'를 통해 동일하게 사용하실 수 있습니다.</p>
+        </div>
+
+        <div class="footer">
+            © 2026 Easy Match 개발팀 | 업무 효율의 새 기준
+        </div>
+    </div>
+
+</body>
+
+</html>

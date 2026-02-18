@@ -2,7 +2,7 @@ import os
 import shutil
 from PIL import Image
 
-src = "/Users/heebonpark/.gemini/antigravity/brain/19fc9aa5-1f74-4a5f-bcb6-a91aa906d597/easy_match_logo_final_1771040947191.png"
+src = "/Users/User/.gemini/antigravity/brain/19fc9aa5-1f74-4a5f-bcb6-a91aa906d597/easy_match_logo_final_1771040947191.png"
 dst_dir = "assets"
 os.makedirs(dst_dir, exist_ok=True)
 dst = os.path.join(dst_dir, "logo_header.png")
