@@ -27,14 +27,30 @@ REM Build using CLI arguments (avoiding Spec file Unicode path issues)
 echo [BUILD] PyInstaller 실행 중 (CLI Mode)...
 pyinstaller --noconfirm --onedir --windowed ^
     --name "ExcelMatcher_v1.0.0" ^
+    --add-data "seller_assets;seller_assets" ^
+    --add-data "assets;assets" ^
+    --add-data "presets.json;." ^
+    --add-data "replacements.json;." ^
     --hidden-import "pandas" ^
     --hidden-import "xlwings" ^
     --hidden-import "openpyxl" ^
     --hidden-import "xlsxwriter" ^
     --hidden-import "requests" ^
+    --hidden-import "PIL" ^
+    --hidden-import "PIL.Image" ^
+    --hidden-import "PIL.ImageTk" ^
     --collect-all "Pillow" ^
-    --add-data "assets;assets" ^
-    --add-data "seller_assets\user_manual_v1.0.0.html;seller_assets" ^
+    --exclude-module "PyQt5" ^
+    --exclude-module "PyQt6" ^
+    --exclude-module "qtpy" ^
+    --exclude-module "QtPy" ^
+    --exclude-module "jupyter" ^
+    --exclude-module "notebook" ^
+    --exclude-module "scipy" ^
+    --exclude-module "matplotlib" ^
+    --exclude-module "IPython" ^
+    --exclude-module "sympy" ^
+    --exclude-module "astropy" ^
     --icon "assets\app.ico" ^
     main.py
 
