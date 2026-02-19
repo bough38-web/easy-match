@@ -468,9 +468,14 @@ class ReplacementEditor(tk.Toplevel):
         top_frame = ttk.LabelFrame(self, text="규칙 프리셋 관리", padding=10)
         top_frame.pack(fill="x", padx=int(10 * scale), pady=int(5 * scale))
 
+        scale = get_scaling_factor(self)
         self.preset_var = tk.StringVar()
         self.cb_preset = ttk.Combobox(
-            top_frame, textvariable=self.preset_var, state="readonly", width=25
+            top_frame, 
+            textvariable=self.preset_var, 
+            state="readonly", 
+            width=int(25 * scale),
+            font=(get_system_font()[0], int(9 * scale))
         )
         self.cb_preset.pack(side="left", padx=5)
         self.cb_preset.bind("<<ComboboxSelected>>", self.on_preset_selected)
@@ -488,25 +493,19 @@ class ReplacementEditor(tk.Toplevel):
         main_frame = ttk.Frame(self, padding=10)
         main_frame.pack(fill="both", expand=True)
 
-        form_frame = ttk.Frame(main_frame)
-        form_frame.pack(fill="x", pady=(0, 10))
+        form_frame = tk.Frame(self, bg="#f0f0f0", padx=10, pady=10)
+        form_frame.pack(fill="x")
 
-        ttk.Label(form_frame, text="대상 컬럼명:").grid(
-            row=0, column=0, padx=5, sticky="w"
-        )
-        self.ent_col = ttk.Entry(form_frame, width=20)
+        ttk.Label(form_frame, text="컬럼(추가):", bg="#f0f0f0").grid(row=0, column=0, padx=5, sticky="w")
+        self.ent_col = ttk.Entry(form_frame, width=int(20 * scale), font=(get_system_font()[0], int(9 * scale)))
         self.ent_col.grid(row=0, column=1, padx=5)
 
-        ttk.Label(form_frame, text="변경 전 (Old):").grid(
-            row=0, column=2, padx=5, sticky="w"
-        )
-        self.ent_old = ttk.Entry(form_frame, width=15)
+        ttk.Label(form_frame, text="바꿀값:", bg="#f0f0f0").grid(row=0, column=2, padx=5, sticky="w")
+        self.ent_old = ttk.Entry(form_frame, width=int(15 * scale), font=(get_system_font()[0], int(9 * scale)))
         self.ent_old.grid(row=0, column=3, padx=5)
 
-        ttk.Label(form_frame, text="변경 후 (New):").grid(
-            row=0, column=4, padx=5, sticky="w"
-        )
-        self.ent_new = ttk.Entry(form_frame, width=15)
+        ttk.Label(form_frame, text="결과값:", bg="#f0f0f0").grid(row=0, column=4, padx=5, sticky="w")
+        self.ent_new = ttk.Entry(form_frame, width=int(15 * scale), font=(get_system_font()[0], int(9 * scale)))
         self.ent_new.grid(row=0, column=5, padx=5)
 
         ttk.Button(form_frame, text="추가/수정", command=self.add_rule).grid(
@@ -656,9 +655,10 @@ class GridCheckList(tk.Frame): # Switch to tk.Frame for consistent background co
         top = tk.Frame(self, bg=bg_color)
         scale = get_scaling_factor(master)
         self.scale = scale
+        scale = get_scaling_factor(master)
         top.pack(fill="x", pady=(0, int(4 * scale)))
         self.q = tk.StringVar()
-        ent = ttk.Entry(top, textvariable=self.q)
+        ent = ttk.Entry(top, textvariable=self.q, font=(get_system_font()[0], int(10 * scale)))
         ent.pack(side="left", fill="x", expand=True)
         ent.bind("<KeyRelease>", self._on_key_release)
         self.search_timer = None
@@ -798,7 +798,7 @@ class MultiSelectListBox(GridCheckList):
 
 # Determine base class for App
 if DRAG_DROP_AVAILABLE:
-    BaseApp = TkinterDnD.Tk
+    BaseApp = TkinterDnD
 else:
     BaseApp = tk.Tk
 
@@ -1417,7 +1417,8 @@ class FileLoaderFrame(tk.Frame):
             ttk.Button(self.f_frame, text="다중 선택", command=self._open_multi_dialog, width=int(10 * scale)).pack(side="right", padx=(5, 0))
         ttk.Button(self.f_frame, text="찾기", command=self._pick_file, width=int(8 * scale)).pack(side="right", padx=(5, 0))
 
-        entry = ttk.Entry(self.f_frame, textvariable=self.path)
+        entry_font = (get_system_font()[0], int(10 * scale))
+        entry = ttk.Entry(self.f_frame, textvariable=self.path, font=entry_font)
         entry.pack(side="left", fill="x", expand=True)
 
         # Placeholder Text (DPI Aware Font Size)
@@ -1434,6 +1435,8 @@ class FileLoaderFrame(tk.Frame):
                 lbl_prompt.place(relx=0.5, rely=0.5, anchor="center")
         
         self.path.trace_add("write", _check_placeholder)
+        # Force initial check
+        _check_placeholder()
         
         # Click on label -> Focus entry
         lbl_prompt.bind("<Button-1>", lambda e: entry.focus_set())
@@ -1456,13 +1459,15 @@ class FileLoaderFrame(tk.Frame):
         self.c_frame = tk.Frame(self.content, bg="white")
         self.c_frame.pack(fill="x", pady=(5, 0))
         
-        tk.Label(self.c_frame, text="시트:", bg="white").pack(side="left")
-        self.cb_sheet = ttk.Combobox(self.c_frame, textvariable=self.sheet, state="readonly", width=15)
-        self.cb_sheet.pack(side="left", padx=5)
+        tk.Label(self.c_frame, text="시트:", bg="white", font=(get_system_font()[0], int(9 * scale))).pack(side="left")
+        self.cb_sheet = ttk.Combobox(self.c_frame, textvariable=self.sheet, state="readonly", 
+                                     width=int(15 * scale), font=(get_system_font()[0], int(9 * scale)))
+        self.cb_sheet.pack(side="left", padx=int(5 * scale))
         self.cb_sheet.bind("<<ComboboxSelected>>", self._notify_change)
         
-        tk.Label(self.c_frame, text="헤더:", bg="white").pack(side="left", padx=(10, 0))
-        ttk.Spinbox(self.c_frame, from_=1, to=99, textvariable=self.header, width=5, command=self._notify_change).pack(side="left", padx=5)
+        tk.Label(self.c_frame, text="헤더:", bg="white", font=(get_system_font()[0], int(9 * scale))).pack(side="left", padx=(int(10 * scale), 0))
+        ttk.Spinbox(self.c_frame, from_=1, to=99, textvariable=self.header, width=int(5 * scale), 
+                    font=(get_system_font()[0], int(9 * scale)), command=self._notify_change).pack(side="left", padx=int(5 * scale))
 
         # Filter UI (Redesigned)
         self.f_opt_frame = tk.Frame(self.content, bg="white")
@@ -1607,7 +1612,19 @@ class FileLoaderFrame(tk.Frame):
 
     def _on_drop(self, event):
         try:
-            file_path = event.data.strip('{}')
+            raw_path = event.data
+            # Handle {Path with spaces}
+            if raw_path.startswith('{') and raw_path.endswith('}'):
+                file_path = raw_path[1:-1]
+            else:
+                file_path = raw_path
+            
+            # Handle Windows leading slash from TkinterDnD: /C:/...
+            if os.name == 'nt' and file_path.startswith('/') and len(file_path) > 2 and file_path[2] == ':':
+                file_path = file_path[1:]
+            
+            file_path = file_path.strip()
+            
             valid_extensions = ('.xlsx', '.xls', '.csv')
             if not file_path.lower().endswith(valid_extensions):
                 show_custom_alert(self, "파일 형식 오류", f"지원하지 않는 파일 형식입니다.", "warning")
