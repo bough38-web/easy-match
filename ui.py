@@ -1565,11 +1565,14 @@ class FileLoaderFrame(tk.Frame):
                 
                 def _done():
                     self.cb_sheet["values"] = sheets
+                    
                     if sheets: 
                         self.cb_sheet.current(0)
                         self.sheet.set(sheets[0])
                     else:
                         self.sheet.set("")
+                        # Alert user if no sheets found (could be password protected or really empty)
+                        show_custom_alert(self, "확인 필요", "시트를 찾을 수 없습니다.\n파일이 암호화되어 있거나 손상되었을 수 있습니다.", "warning")
                     
                     # Reset Batch mode if any
                     self.multi_files = []
