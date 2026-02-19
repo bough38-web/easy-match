@@ -169,9 +169,31 @@
 
         .cols-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 0.5rem;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.25rem 0.5rem;
             padding: 1rem;
+        }
+
+        .check-item {
+            display: flex !important;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+            margin: 0 !important;
+            /* Override global label margin */
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .check-item span {
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .search-inner input {
