@@ -84,8 +84,8 @@ def get_fuzzy_mapper(base_keys: pd.Series, target_keys: pd.Series, threshold: in
     base_set = set(base_choices)
     target_choices = [t for t in target_choices if t and t not in base_set]
     
-    # SAFETY: Avoid N*M explosion (Limit to 50M comparisons for responsiveness)
-    if not target_choices or (len(base_choices) * len(target_choices) > 50000000):
+    # SAFETY: Avoid N*M explosion (Limit to 10M for web responsiveness)
+    if not target_choices or (len(base_choices) * len(target_choices) > 10000000):
          return {} 
 
     mapper = {}
@@ -107,6 +107,11 @@ def remove_illegal_chars(val):
     if not isinstance(val, str):
         return val
     return re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', '', val)
+def vectorize_remove_illegal_chars(series: pd.Series) -> pd.Series:
+    """Vectorized removal of illegal Excel characters."""
+    if series.empty or series.dtype != 'object':
+        return series
+    return series.astype(str).str.replace(r'[\x00-\x08\x0B\x0C\x0E-\x1F]', '', regex=True)
 
 def vectorize_norm(series: pd.Series) -> pd.Series:
     """Vectorized version of norm() for high performance on large datasets."""

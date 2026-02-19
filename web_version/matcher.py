@@ -239,7 +239,7 @@ def match_universal(
     if rows_max > 10000:
         log_progress(f"대용량 데이터({rows_max:,}행) 처리 중... 잠시만 기다려주세요.", 15)
         
-    use_fast = rows_max >= 50000  # auto fast mode for big data
+    use_fast = rows_max >= 10000  # Lowered from 50000 for web responsiveness
 
     # replacements (target only)
     if replacement_rules:
@@ -567,11 +567,12 @@ def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir,
     save_as_csv = total > 50000
 
     # Sanitize entire dataframe ONLY if saving to Excel (openpyxl/xlsxwriter requirement)
+    from utils import vectorize_remove_illegal_chars
     if not save_as_csv:
         log_progress("데이터 저장 준비 중 (Excel 특수문자 제거)...", 95)
         _debug_log("Sanitizing data for Excel...")
         for col in joined.select_dtypes(include=['object']).columns:
-            joined[col] = joined[col].map(remove_illegal_chars)
+            joined[col] = vectorize_remove_illegal_chars(joined[col])
     else:
         log_progress("대량 데이터 모드: 특수문자 제거 건너뜀 (CSV)...", 95)
 
