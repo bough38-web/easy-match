@@ -3,22 +3,40 @@ from __future__ import annotations
 import os
 import sys
 import traceback
+import time
+
+LOG_FILE = "debug_log.txt"
+
+def log_to_file(msg):
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+    except: pass
+
+log_to_file("Process started.")
 
 # Force PIL discovery by PyInstaller
 try:
     import PIL
     import PIL.Image
     import PIL.ImageTk
-    print(f"[ExcelMatcher] PIL version: {PIL.__version__}")
+    log_to_file(f"PIL version: {PIL.__version__}")
 except ImportError as e:
-    print(f"[ExcelMatcher] Critical: PIL import failed in main: {e}")
+    log_to_file(f"Critical: PIL import failed: {e}")
 
 # [Hotfix v1.0.1] Force 'requests' inclusion for PyInstaller
 try:
     import requests
-    import excel_io  # Force inclusion
+    log_to_file("requests imported successfully")
 except ImportError:
-    pass
+    log_to_file("requests import failed")
+
+try:
+    import excel_io  # Force inclusion
+    log_to_file("excel_io imported successfully")
+except ImportError:
+    log_to_file("excel_io import failed (Critical)")
+
 
 # -----------------------------
 # 터미널 로그 유틸
