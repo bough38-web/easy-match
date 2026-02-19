@@ -362,37 +362,65 @@
             else el.classList.remove("active");
         }
 
-        document.getElementById("matchForm").onsubmit = function (e) {
+        document.getElementById("matchForm").onsubmit = async function (e) {
+            e.preventDefault();
+
             // Collect checked columns
             const keys = Array.from(document.querySelectorAll(".key-check:checked")).map(cb => cb.value);
             const takes = Array.from(document.querySelectorAll(".take-check:checked")).map(cb => cb.value);
 
             if (keys.length === 0) {
                 alert("매칭 키(Key)를 최소 하나 이상 선택해주세요.");
-                e.preventDefault();
                 return;
             }
             if (takes.length === 0) {
                 alert("가져올 값(Take)을 최소 하나 이상 선택해주세요.");
-                e.preventDefault();
                 return;
             }
 
             document.getElementById("key_cols_input").value = keys.join(",");
             document.getElementById("take_cols_input").value = takes.join(",");
 
-            // Show loading during submit (browser will handle download)
-            showLoading(true, "매칭 수행 중... (완료 시 다운로드됩니다)");
+            showLoading(true, "매칭 수행 중... (완료 시 자동으로 다운로드됩니다)");
 
-            // Re-enable loader after a few seconds? No, stay until response?
-            // Since it's a form submit returning file, the page won't reload, but loader will stay.
-            // Setup a small timeout to hide loader if error, or rely on user to reload.
-            // Better: use fetch for submit to handle blob?
-            // For prototype simplicity, form submit is fine, let's just make user aware.
-            setTimeout(() => {
-                // If it takes too long, maybe hide?
-                // showLoading(false); 
-            }, 5000);
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || "매칭 중 오류 발생");
+                }
+
+                // Handle file download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                
+                // Content-Disposition header might contain filename
+                const contentDisposition = response.headers.get("Content-Disposition");
+                let filename = "matching_result.xlsx";
+                if (contentDisposition && contentDisposition.indexOf("filename=") !== -1) {
+                    filename = contentDisposition.split("filename=")[1].replace(/"/g, "");
+                }
+                
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+            } catch (error) {
+                console.error(error);
+                alert("오류: " + error.message);
+            } finally {
+                showLoading(false);
+            }
         };
     </script>
 </body>

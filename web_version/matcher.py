@@ -213,7 +213,7 @@ def match_universal(
         take_cols = [c for c in joined.columns if c not in df_b.columns and c not in key_cols]
         _debug_log(f"Batch Match Finished. Rows: {len(joined)}, New Cols: {len(take_cols)}")
 
-        return _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
+        return _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
 
     if not is_batch:
         df_t = _load_df(target_config, key_cols + take_cols)  # load keys for matching + takes
@@ -526,7 +526,7 @@ def match_universal(
 
 
     # Finalize and Save
-    return _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
+    return _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
 
 def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir, log_progress, df_t=None):
     import pandas as pd
