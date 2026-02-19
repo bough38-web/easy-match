@@ -11,5 +11,11 @@
             "src": "/(.*)",
             "dest": "server.py"
         }
-    ]
+    ],
+    "functions": {
+        "server.py": {
+            "maxDuration": 15,
+            "memory": 1024
+        }
+    }
 }

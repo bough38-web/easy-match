@@ -1,13 +1,17 @@
-from __future__ import annotations
-
 import os
 import datetime
 import time
+import sys
+import gc
 from typing import List, Optional, Callable, Tuple, Dict
 
 import pandas as pd
+import numpy as np
 
-from utils import norm, smart_format, get_fuzzy_mapper, RAPIDFUZZ_AVAILABLE
+from utils import (
+    norm, smart_format, get_fuzzy_mapper, RAPIDFUZZ_AVAILABLE,
+    apply_expert_norm, apply_expert_format
+)
 from excel_io import read_table_file, write_xlsx
 from open_excel import read_table_open, write_to_open_excel
 
@@ -337,11 +341,8 @@ def match_universal(
     # normalize keys
     log_progress("데이터 정규화 중...", 30)
     
-    # 1. Deduplicate Target by keys (we only need one match if multiple?)
+    # Deduplicate Target by keys (we only need one match if multiple?)
     #    Actually current logic: keep all targets? 
-    import numpy as np
-    import gc
-    from utils import apply_expert_norm, apply_expert_format
 
     for k in key_cols:
         if k in df_b.columns:
@@ -579,7 +580,6 @@ def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir,
 
     if total:
         # vectorized matched count: any non-empty in take_cols
-        import numpy as np
         # ... (rest of matching logic)
         mask_match = pd.Series(False, index=joined.index)
         for c in take_cols:
