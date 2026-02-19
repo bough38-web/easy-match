@@ -16,6 +16,15 @@ try:
 except ImportError:
     DRAG_DROP_AVAILABLE = False
 
+def get_scaling_factor(window):
+    """Returns the DPI scaling factor for the given window."""
+    try:
+        # Standard Tkinter scaling is 96 DPI (1.333...)
+        # This returns the multiplier vs baseline 1.0
+        return window.tk.call('tk', 'scaling') / (96.0 / 72.0)
+    except:
+        return 1.0
+
 from __version__ import __version__
 from diagnostics import collect_summary, format_summary
 from excel_io import read_header_file, get_sheet_names
@@ -156,9 +165,10 @@ class GradientFrame(tk.Canvas):
             self.create_line(0, i, width, i, tags=("gradient",), fill=color)
         
         # Add Glass Highlight (Top)
-        self.create_line(0, 0, width, 0, fill="#5d6d7e", width=1, tags=("gradient",))
+        scale = get_scaling_factor(self)
+        self.create_line(0, 0, width, 0, fill="#5d6d7e", width=int(1 * scale), tags=("gradient",))
         # Add Shadow (Bottom)
-        self.create_line(0, height-1, width, height-1, fill="#1c2833", width=1, tags=("gradient",))
+        self.create_line(0, height-1, width, height-1, fill="#1c2833", width=int(1 * scale), tags=("gradient",))
         
         self.tag_lower("gradient")
 
@@ -182,11 +192,13 @@ def show_custom_alert(parent, title, message, kind="info"):
         
     dialog.title(title)
     
+    scale = get_scaling_factor(parent or tk.Tk())
     # Calculate height based on message length roughly
-    lines = message.count('\n') + (len(message) // 40)
-    height = 200 + (lines * 20)
-    dialog.geometry(f"420x{height}")
-    dialog.resizable(False, False)
+    lines = message.count('\n') + (len(message) // int(40 / scale))
+    height = int((200 + (lines * 20)) * scale)
+    width = int(420 * scale)
+    dialog.geometry(f"{width}x{height}")
+    dialog.resizable(True, True) # Allow slight resize if text is tight
     
     if parent:
         dialog.transient(parent)
@@ -214,10 +226,11 @@ def show_custom_alert(parent, title, message, kind="info"):
         
     # Header
     try:
-        header = GradientFrame(dialog, color1=header_col1, color2=header_col2, height=50)
+        header = GradientFrame(dialog, color1=header_col1, color2=header_col2, height=int(50 * scale))
         header.pack(fill="x")
         # Use simple label inside canvas or fallback if canvas text is tricky
-        header.create_text(20, 25, text=f"{icon_char}  {title}", font=(get_system_font()[0], 13, "bold"), fill="white", anchor="w")
+        header.create_text(int(20 * scale), int(25 * scale), text=f"{icon_char}  {title}", 
+                           font=(get_system_font()[0], int(13 * scale), "bold"), fill="white", anchor="w")
     except:
         # Fallback if GradientFrame fails or circular ref
         tk.Label(dialog, text=f"{icon_char} {title}", bg=header_col1, fg="white", font=("Arial", 12, "bold"), pady=10).pack(fill="x")
@@ -226,7 +239,8 @@ def show_custom_alert(parent, title, message, kind="info"):
     content = tk.Frame(dialog, bg="white", padx=20, pady=20)
     content.pack(fill="both", expand=True)
     
-    msg_lbl = tk.Label(content, text=message, font=(get_system_font()[0], 11), bg="white", wraplength=380, justify="left", fg="#333333")
+    msg_lbl = tk.Label(content, text=message, font=(get_system_font()[0], int(11 * scale)), 
+                    bg="white", wraplength=int(380 * scale), justify="left", fg="#333333")
     msg_lbl.pack(expand=True, fill="both")
     
     # Button
@@ -239,7 +253,7 @@ def show_custom_alert(parent, title, message, kind="info"):
     # Center on parent
     try:
         if parent:
-            x = parent.winfo_rootx() + (parent.winfo_width()//2) - 210
+            x = parent.winfo_rootx() + (parent.winfo_width()//2) - (width//2)
             y = parent.winfo_rooty() + (parent.winfo_height()//2) - (height//2)
             dialog.geometry(f"+{x}+{y}")
     except:
@@ -1354,12 +1368,22 @@ class FileLoaderFrame(tk.Frame):
 
         # File Mode UI
         self.f_frame = tk.Frame(self.content, bg="white")
+        
+        # Scaling for Windows
+        scale = get_scaling_factor(self)
+        
+        # Align Buttons FIRST to ensure they are visible and not squeezed by Entry
+        if self.allow_multiple:
+            ttk.Button(self.f_frame, text="다중 선택", command=self._open_multi_dialog, width=int(10 * scale)).pack(side="right", padx=(5, 0))
+        ttk.Button(self.f_frame, text="찾기", command=self._pick_file, width=int(8 * scale)).pack(side="right", padx=(5, 0))
+
         entry = ttk.Entry(self.f_frame, textvariable=self.path)
         entry.pack(side="left", fill="x", expand=True)
 
-        # Placeholder Text
+        # Placeholder Text (DPI Aware Font Size)
+        prompt_font_size = max(8, int(10 * scale))
         lbl_prompt = tk.Label(entry, text="파일을 이곳에 드래그하거나 찾기 버튼을 눌러주세요", 
-                            bg="white", fg="#aaaaaa", font=(get_system_font()[0], 10),
+                            bg="white", fg="#aaaaaa", font=(get_system_font()[0], prompt_font_size),
                             cursor="xterm")
         lbl_prompt.place(relx=0.5, rely=0.5, anchor="center")
         
@@ -1380,11 +1404,7 @@ class FileLoaderFrame(tk.Frame):
                 entry.dnd_bind('<<Drop>>', self._on_drop)
             except: pass
 
-        # Align Find button
-        # Align Find button
-        if self.allow_multiple:
-            ttk.Button(self.f_frame, text="다중 선택", command=self._open_multi_dialog, width=10).pack(side="right", padx=(5, 0))
-        ttk.Button(self.f_frame, text="찾기", command=self._pick_file, width=8).pack(side="right", padx=(5, 0))
+        # Click on label -> Focus entry
 
         # Open Mode UI
         self.o_frame = tk.Frame(self.content, bg="white")
@@ -1665,11 +1685,12 @@ class FileLoaderFrame(tk.Frame):
 
 class ColumnSelectorFrame(tk.Frame):
     def __init__(self, master, title, height=150, bg_color="white"):
-        super().__init__(master, bg=bg_color, highlightbackground="#bdc3c7", highlightthickness=1)
+        scale = get_scaling_factor(master)
+        super().__init__(master, bg=bg_color, highlightbackground="#bdc3c7", highlightthickness=max(1, int(scale)))
         self.bg_color = bg_color
         
-        # Content Container (Increased padding to 15 to match FileLoaderFrame)
-        self.content = tk.Frame(self, bg=bg_color, padx=15, pady=15)
+        # Content Container
+        self.content = tk.Frame(self, bg=bg_color, padx=int(15 * scale), pady=int(15 * scale))
         self.content.pack(fill="both", expand=True)
 
         # Custom Header
@@ -1686,8 +1707,9 @@ class ColumnSelectorFrame(tk.Frame):
             hover_bg = "#e0e7ef" if bg_color == "#f0f7ff" else "#e0efe4"
             
             lbl = tk.Label(parent, text=text, bg="white", fg="black", # White inside for contrast
-                           relief="flat", cursor="hand2", font=(get_system_font()[0], 9),
-                           padx=10, pady=2, highlightthickness=1, highlightbackground="#cccccc")
+                           relief="flat", cursor="hand2", font=(get_system_font()[0], max(8, int(9 * scale))),
+                           padx=int(10 * scale), pady=int(2 * scale), 
+                           highlightthickness=max(1, int(scale)), highlightbackground="#cccccc")
             
             def on_enter(e): lbl.config(bg="#f8f8f8")
             def on_leave(e): lbl.config(bg="white")
@@ -1735,6 +1757,9 @@ class App(BaseApp):
         default_tgt = "file"
         self.base_mode = tk.StringVar(value=default_base)
         self.tgt_mode = tk.StringVar(value=default_tgt)
+        
+        # Determine internal scaling factor
+        self.scale = get_scaling_factor(self)
         
         # Output Path
         # Output Path (Default to Downloads/ExcelMatcher_Results for visibility/permission)
@@ -1789,7 +1814,7 @@ class App(BaseApp):
             logo_path = os.path.join(base_path, "assets", "logo.png")
             if os.path.exists(logo_path):
                 pil_img = Image.open(logo_path)
-                pil_img.thumbnail((300, 70), Image.Resampling.LANCZOS)
+                pil_img.thumbnail((int(300 * self.scale), int(70 * self.scale)), Image.Resampling.LANCZOS)
                 self.logo_tk = ImageTk.PhotoImage(pil_img)
                 
                 # Split logo for "Meeting" animation
@@ -1803,7 +1828,7 @@ class App(BaseApp):
             gear_path = os.path.join(base_path, "assets", "gear.png")
             if os.path.exists(gear_path):
                 gear_img = Image.open(gear_path)
-                gear_img.thumbnail((20, 20), Image.Resampling.LANCZOS)
+                gear_img.thumbnail((int(20 * self.scale), int(20 * self.scale)), Image.Resampling.LANCZOS)
                 self.gear_tk = ImageTk.PhotoImage(gear_img)
             else:
                 self.gear_tk = None
@@ -1858,11 +1883,11 @@ class App(BaseApp):
             self.top_header.create_text(text_x, y_center-4, text="Easy Match", font=font_title, fill="white", anchor="w", tags="content")
 
             # 3. Gear Icon (License/Admin) on Right (Expert Position)
-            gear_x = width - 95
+            gear_x = width - int(95 * self.scale)
             if hasattr(self, 'gear_tk') and self.gear_tk:
                 self.top_header.create_image(gear_x, y_center, image=self.gear_tk, tags=("content", "gear_btn"))
             else:
-                self.top_header.create_text(gear_x, y_center, text="S", font=(get_system_font()[0], 18, "bold"), fill="white", tags=("content", "gear_btn"))
+                self.top_header.create_text(gear_x, y_center, text="S", font=(get_system_font()[0], int(18 * self.scale), "bold"), fill="white", tags=("content", "gear_btn"))
             
             # Hover/Click effect binding for Gear
             self.top_header.tag_bind("gear_btn", "<Button-1>", lambda e: open_expert_menu(e))
@@ -1871,15 +1896,15 @@ class App(BaseApp):
 
             # 4. Help Button (?) on Right
             # Draw a circle
-            btn_x = width - 50
-            btn_r = 16
+            btn_x = width - int(50 * self.scale)
+            btn_r = int(16 * self.scale)
             
             # Circle
             # Tag 'help_btn' for binding
             self.top_header.create_oval(btn_x-btn_r, y_center-btn_r, btn_x+btn_r, y_center+btn_r, 
-                                        fill="#e67e22", outline="white", width=2, tags=("content", "help_btn"))
+                                        fill="#e67e22", outline="white", width=int(2 * self.scale), tags=("content", "help_btn"))
             # Question Mark
-            self.top_header.create_text(btn_x, y_center, text="?", font=(get_system_font()[0], 12, "bold"), fill="white", tags=("content", "help_btn"))
+            self.top_header.create_text(btn_x, y_center, text="?", font=(get_system_font()[0], int(12 * self.scale), "bold"), fill="white", tags=("content", "help_btn"))
             
             # Hover/Click effect binding
             self.top_header.tag_bind("help_btn", "<Button-1>", lambda e: show_feature_info())
@@ -1974,7 +1999,12 @@ class App(BaseApp):
         def show_feature_info():
             top = tk.Toplevel(self)
             top.title("Easy Match란?")
-            top.geometry("600x500")
+            
+            # DPI scaling for popup
+            scale = self.scale
+            w = int(600 * scale)
+            h = int(500 * scale)
+            top.geometry(f"{w}x{h}")
             top.configure(bg="white")
             
             # Center the popup
@@ -1982,9 +2012,9 @@ class App(BaseApp):
             root_y = self.winfo_rooty()
             root_w = self.winfo_width()
             root_h = self.winfo_height()
-            x = root_x + (root_w // 2) - 300
-            y = root_y + (root_h // 2) - 250
-            top.geometry(f"600x500+{x}+{y}")
+            x = root_x + (root_w // 2) - (w // 2)
+            y = root_y + (root_h // 2) - (h // 2)
+            top.geometry(f"+{x}+{y}")
 
             # Title
             tk.Label(top, text="Easy Match란?", font=(get_system_font()[0], 20, "bold"), bg="white", fg="#2c3e50").pack(pady=(20, 15))

@@ -9,14 +9,16 @@
 ## 📥 다운로드
 
 ### 자동 빌드 (GitHub Actions)
-
 코드가 업데이트되면 자동으로 실행 파일이 생성됩니다:
 
 1. **GitHub 저장소** → **Actions** 탭
 2. 최신 워크플로우 클릭
 3. **Artifacts** 섹션에서 다운로드:
-   - `EasyMatch-Windows` - Windows EXE 파일
+   - `ExcelMatcher-Windows` - Windows 실행 파일 (ZIP)
    - `EasyMatch-macOS` - macOS 앱 (ZIP)
+
+> [!IMPORTANT]
+> **Windows 사용자 주의사항**: 다운로드한 ZIP 파일의 **압축을 반드시 먼저 푼 후** (Extract All), 폴더 안의 `ExcelMatcher.exe`를 실행해 주세요. 압축을 풀지 않고 ZIP 안에서 바로 실행하면 오류가 발생합니다.
 
 ### 릴리즈 다운로드
 
