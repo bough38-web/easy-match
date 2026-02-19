@@ -1451,7 +1451,8 @@ class FileLoaderFrame(tk.Frame):
 
         # Open Mode UI
         self.o_frame = tk.Frame(self.content, bg="white")
-        self.cb_book = ttk.Combobox(self.o_frame, textvariable=self.book, state="readonly")
+        self.cb_book = ttk.Combobox(self.o_frame, textvariable=self.book, state="readonly", 
+                                    font=(get_system_font()[0], int(9 * scale)))
         self.cb_book.pack(side="left", fill="x", expand=True)
         self.cb_book.bind("<<ComboboxSelected>>", self._on_book_select)
 
@@ -1548,30 +1549,42 @@ class FileLoaderFrame(tk.Frame):
 
     def _load_file_data(self, file_path):
         """Helper to fetch sheet names and update UI"""
-        try:
-            # Use master's cache if available
-            app = self.winfo_toplevel()
-            sheets = []
-            if hasattr(app, "_fetch_sheet_names"):
-                sheets = app._fetch_sheet_names(file_path)
-            else:
-                from excel_io import get_sheet_names
-                sheets = get_sheet_names(file_path)
-            
-            self.cb_sheet["values"] = sheets
-            if sheets: 
-                self.cb_sheet.current(0)
-                self.sheet.set(sheets[0])
-            else:
-                self.sheet.set("")
-            
-            # Reset Batch mode if any
-            self.multi_files = []
-            self.cb_sheet["state"] = "readonly"
-            
-            self._notify_change()
-        except Exception as e:
-            show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
+        self.cb_sheet["values"] = ["(로드 중...)"]
+        self.cb_sheet.set("(로드 중...)")
+        
+        def _task():
+            try:
+                # Use master's cache if available
+                app = self.winfo_toplevel()
+                sheets = []
+                if hasattr(app, "_fetch_sheet_names"):
+                    sheets = app._fetch_sheet_names(file_path)
+                else:
+                    from excel_io import get_sheet_names
+                    sheets = get_sheet_names(file_path)
+                
+                def _done():
+                    self.cb_sheet["values"] = sheets
+                    if sheets: 
+                        self.cb_sheet.current(0)
+                        self.sheet.set(sheets[0])
+                    else:
+                        self.sheet.set("")
+                    
+                    # Reset Batch mode if any
+                    self.multi_files = []
+                    self.cb_sheet["state"] = "readonly"
+                    self._notify_change()
+                
+                self.after(0, _done)
+            except Exception as e:
+                def _err():
+                    self.cb_sheet["values"] = []
+                    self.sheet.set("")
+                    show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
+                self.after(0, _err)
+        
+        threading.Thread(target=_task, daemon=True).start()
 
     def _refresh_filter_cols(self):
         for row in self.f_rows:
@@ -1691,17 +1704,30 @@ class FileLoaderFrame(tk.Frame):
     def refresh_open(self):
         if self.mode.get() != "open": return
         if not xlwings_available():
-            show_custom_alert(self, "오류", "xlwings가 필요합니다.", "warning")
+            # Don't show alert every time, just log if it's initial load
+            # but if user explicitly clicked refresh, we can show it
+            self.cb_book["values"] = ["Excel/xlwings 권한 필요"]
             return
-        books = list_open_books()
-        self.cb_book["values"] = books
-        if books:
-            if not self.book.get() or self.book.get() not in books:
-                self.book.set(books[0])
-        else:
-            self.book.set("")
-            self.cb_sheet["values"] = []
-        self._on_book_select()
+            
+        self.cb_book["values"] = ["(목록 갱신 중...)"]
+        
+        def _task():
+            try:
+                books = list_open_books()
+                def _done():
+                    self.cb_book["values"] = books
+                    if books:
+                        if not self.book.get() or self.book.get() not in books:
+                            self.book.set(books[0])
+                    else:
+                        self.book.set("")
+                        self.cb_sheet["values"] = []
+                    self._on_book_select()
+                self.after(0, _done)
+            except:
+                self.after(0, lambda: self.cb_book.config(values=[]))
+                
+        threading.Thread(target=_task, daemon=True).start()
 
     def reset(self):
         """Resets the loader state"""
@@ -2044,8 +2070,22 @@ class App(BaseApp):
                 from ui import AdminPanel
                 AdminPanel(self)
 
+            def refresh_excel_connection():
+                if hasattr(self, 'src_loader'): self.src_loader.refresh_open()
+                if hasattr(self, 'tgt_loader'): self.tgt_loader.refresh_open()
+                show_custom_alert(self, "완료", "Excel 인스턴스/파일 목록을 다시 로드했습니다.", "info")
+
+            def show_diag():
+                from diagnostics import collect_summary, format_summary
+                summary = collect_summary()
+                diag_text = format_summary(summary)
+                show_preview_dialog(self, "시스템 진단 정보", diag_text)
+
             menu.add_command(label="라이선스 등록 (제품 키 입력)", command=self.register_license)
             menu.add_command(label="관리자 패널", command=open_admin)
+            menu.add_separator()
+            menu.add_command(label="Excel 연동 새로고침 (파일 인식 안 될 때)", command=refresh_excel_connection)
+            menu.add_command(label="시스템 진단 정보 보기", command=show_diag)
             menu.add_separator()
             menu.add_command(
                 label=f"라이선스: {self.license_info.get('type','?')} / 만료: {self.license_info.get('expiry','?')}",
@@ -2904,10 +2944,14 @@ class App(BaseApp):
                 
                 def _done():
                     self.match_key_selector.set_items(cols)
+                    if not cols:
+                        self._log("기준 헤더가 없습니다 (파일 확인 필요)")
                     self._update_run_btn_state()
                 self.after(0, _done)
             except Exception as e:
-                def _err(): self._log(f"기준 헤더 로드 실패: {e}")
+                def _err(): 
+                    self.match_key_selector.set_items([])
+                    self._log(f"기준 헤더 로드 실패: {e}")
                 self.after(0, _err)
         
         threading.Thread(target=_task, daemon=True).start()
@@ -2938,11 +2982,16 @@ class App(BaseApp):
                 
                 def _done():
                     self.target_col_selector.set_items(cols)
-                    self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
+                    if cols:
+                        self._log(f"대상 컬럼 로드됨 ({len(cols)}개)")
+                    else:
+                        self._log("대상 헤더가 없습니다 (파일 확인 필요)")
                     self._update_run_btn_state()
                 self.after(0, _done)
             except Exception as e:
-                def _err(): self._log(f"대상 헤더 로드 실패: {e}")
+                def _err(): 
+                    self.target_col_selector.set_items([])
+                    self._log(f"대상 헤더 로드 실패: {e}")
                 self.after(0, _err)
 
         threading.Thread(target=_task, daemon=True).start()

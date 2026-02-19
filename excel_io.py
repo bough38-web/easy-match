@@ -31,22 +31,32 @@ def _sniff_csv(file_path, enc):
 # ... (rest of file)
 
 def get_sheet_names(file_path):
+    if not file_path or not os.path.exists(file_path):
+        return []
     try:
         ext = os.path.splitext(file_path)[1].lower()
         if ext == '.xlsx':
+            # 1. Fast XML method
             names = fast_xlsx_sheets(file_path)
             if names: return names
+            
+            # 2. openpyxl fallback
             try:
-                return openpyxl.load_workbook(file_path, read_only=True, keep_links=False).sheetnames
+                wb = openpyxl.load_workbook(file_path, read_only=True, keep_links=False)
+                names = wb.sheetnames
+                wb.close()
+                return names
             except:
+                # 3. pandas fallback
                 return pd.ExcelFile(file_path).sheet_names
         elif ext == '.xls':
             return pd.ExcelFile(file_path).sheet_names
         elif ext == '.csv':
             return ['CSV']
     except Exception as e:
-        print(f"Sheet load error: {e}")
+        print(f"Sheet load error ({file_path}): {e}")
         return []
+    return []
 
 def read_header_file(file_path, sheet_name=0, header_row=1):
     try:

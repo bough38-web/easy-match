@@ -52,12 +52,13 @@ The changes have been thoroughly implemented across:
 - [ui.py](file:///Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1/ui.py)
 - [admin_panel.py](file:///Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1/admin_panel.py)
 
-### 4. Emergency Fixes (Regression)
-- **Sheet Recognition**: Fixed an issue where Excel sheets were not recognized on Windows when dragging files. The system now robustly handles Windows-specific path formatting (handles leading slashes like `/C:/...` and curly braces `{}`).
-- **Placeholder Visibility**: Fixed the "Drag and drop here..." guide text. It was previously invisible on some displays because the entry field font wasn't scaled to match the guide text. Both are now perfectly aligned and scaled.
-- **Improved UI Stability**: All input fields (Entry), dropdowns (Combobox), and selection grids are now DPI-aware, ensuring a consistent look and feel across all monitor settings.
+### 4. Excel Recognition & Stability Overhaul
+- **Robust "Open Excel" Mode**: Searching through all active Excel instances to ensure every open file is recognized.
+- **Threaded Data Loading**: Sheets and columns are now loaded in the background with "Loading..." indicators, ensuring the UI remains responsive and "pleasant" (쾌적하게) during file switching.
+- **Self-Healing Connection**: Added an "Excel 연동 새로고침" (Refresh) option in the expert menu (top-right gear icon) to force a re-scan of open files if they aren't showing up.
+- **Diagnostic Tools**: Included a "시스템 진단 정보" command in the expert menu to help troubleshoot any environment issues (Python, xlwings, Excel version).
 
 ---
-*The application is now fully optimized for commercial-grade quality and reliability on Windows.*
+*The application is now fully optimized for commercial-grade quality, reliability, and smooth performance on Windows.*
 
 이제 마켓플레이스 판매 및 공모전 제출을 위한 가장 안정적인 버전이 준비되었습니다.

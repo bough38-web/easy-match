@@ -30,15 +30,17 @@ def xlwings_available() -> bool:
 
 def list_open_books() -> List[str]:
     """
-    현재 열려있는 Excel Workbook 이름 목록 반환
+    현재 열려있는 모든 Excel 인스턴스에서 통합문서 이름 목록 반환
     """
     if not xlwings_available():
         return []
     try:
-        app = xw.apps.active  # type: ignore
-        if app is None:
-            return []
-        return [wb.name for wb in app.books]
+        books = []
+        for app in xw.apps:
+            for wb in app.books:
+                if wb.name not in books:
+                    books.append(wb.name)
+        return books
     except Exception:
         return []
 
@@ -46,17 +48,16 @@ def list_open_books() -> List[str]:
 def _get_book_by_name(book_name: str):
     if not xlwings_available():
         raise RuntimeError("xlwings/Excel 연동 불가")
-    app = xw.apps.active  # type: ignore
-    if app is None:
-        raise RuntimeError("활성 Excel 앱이 없습니다. Excel을 실행하고 파일을 열어주세요.")
-    for wb in app.books:
-        if wb.name == book_name:
-            return wb
-    # 이름이 정확히 일치하지 않을 수도 있어, 부분 매칭 시도(보수적)
-    for wb in app.books:
-        if book_name in wb.name:
-            return wb
-    raise RuntimeError(f"열려있는 통합문서에서 '{book_name}' 을(를) 찾지 못했습니다.")
+    
+    # 모든 인스턴스 검색
+    for app in xw.apps:
+        for wb in app.books:
+            if wb.name == book_name:
+                return wb
+            if book_name in wb.name: # 보수적 매칭
+                return wb
+    
+    raise RuntimeError(f"열려있는 통합문서에서 '{book_name}' 을(를) 찾지 못했습니다. Excel이 실행 중인지 확인해 주세요.")
 
 
 def list_sheets(book_name: str) -> List[str]:
