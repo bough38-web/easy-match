@@ -18,9 +18,6 @@ def fast_xlsx_sheets(file_path):
     except:
         return []
 
-    except:
-        return None
-
 def _sniff_csv_fast(file_path, enc):
     """Sniff CSV delimiter from just the first 8KB."""
     try:
@@ -167,7 +164,7 @@ def read_table_file(file_path, sheet_name, header_row, usecols):
             df = None
             for enc in ['utf-8-sig', 'cp949', 'utf-8', 'euc-kr']:
                 try:
-                    sep = _sniff_csv(path_to_read, enc)
+                    sep = _sniff_csv_fast(path_to_read, enc)
                     # Expert: Engine 'c' is faster than 'python'
                     df = pd.read_csv(path_to_read, header=header_idx, encoding=enc, sep=sep, engine='c', low_memory=False)
                     break
@@ -257,7 +254,7 @@ def get_unique_values(file_path, sheet_name, header_row, column_name, progress_c
                 df = None
                 for enc in ['cp949', 'utf-8', 'euc-kr']:
                     try:
-                        sep = _sniff_csv(path_to_read, enc)
+                        sep = _sniff_csv_fast(path_to_read, enc)
                         df = pd.read_csv(path_to_read, header=header_idx, usecols=[column_name], encoding=enc, sep=sep, engine='python')
                         break
                     except: continue
