@@ -16,6 +16,7 @@ except ImportError as e:
 # [Hotfix v1.0.1] Force 'requests' inclusion for PyInstaller
 try:
     import requests
+    import excel_io  # Force inclusion
 except ImportError:
     pass
 
