@@ -31,44 +31,13 @@ jobs:
 
       - name: Build Windows EXE
         run: |
-          pyinstaller --noconfirm --onedir --windowed `
-            --name "ExcelMatcher" `
-            --add-data "seller_assets;seller_assets" `
-            --add-data "assets;assets" `
-            --add-data "presets.json;." `
-            --add-data "replacements.json;." `
-            --hidden-import "pandas" `
-            --hidden-import "xlwings" `
-            --hidden-import "openpyxl" `
-            --hidden-import "xlsxwriter" `
-            --hidden-import "requests" `
-            --hidden-import "PIL" `
-            --hidden-import "PIL.Image" `
-            --hidden-import "PIL.ImageTk" `
-            --collect-all "Pillow" `
-            --collect-all "tkinterdnd2" `
-            --exclude-module "PyQt5" `
-            --exclude-module "PyQt6" `
-            --exclude-module "qtpy" `
-            --exclude-module "QtPy" `
-            --exclude-module "jupyter" `
-            --exclude-module "notebook" `
-            --exclude-module "scipy" `
-            --exclude-module "matplotlib" `
-            --exclude-module "IPython" `
-            --exclude-module "sympy" `
-            --exclude-module "astropy" `
-            main.py
-
-      - name: Zip Windows Build
-        run: |
-          Compress-Archive -Path dist/ExcelMatcher -DestinationPath dist/ExcelMatcher-Windows.zip
+          pyinstaller ExcelMatcher_v1.0.0.spec
 
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: ExcelMatcher-Windows
-          path: dist/ExcelMatcher-Windows.zip
+          path: dist/ExcelMatcher_v1.0.0
           retention-days: 30
 
   build-macos:
@@ -91,39 +60,13 @@ jobs:
 
       - name: Build macOS App
         run: |
-          pyinstaller --noconfirm --onedir --windowed \
-            --name "ExcelMatcher" \
-            --add-data "seller_assets:seller_assets" \
-            --add-data "assets:assets" \
-            --add-data "presets.json:." \
-            --add-data "replacements.json:." \
-            --hidden-import "pandas" \
-            --hidden-import "xlwings" \
-            --hidden-import "openpyxl" \
-            --hidden-import "xlsxwriter" \
-            --hidden-import "requests" \
-            --hidden-import "PIL" \
-            --hidden-import "PIL.Image" \
-            --hidden-import "PIL.ImageTk" \
-            --collect-all "Pillow" \
-            --collect-all "tkinterdnd2" \
-            main.py
-
-      - name: Create DMG (optional)
-        run: |
-          # Install create-dmg if you want a DMG installer
-          # brew install create-dmg
-          # create-dmg --volname "EasyMatch" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 "EasyMatch.dmg" "dist/EasyMatch.app"
-
-          # For now, just zip the app
-          cd dist
-          zip -r EasyMatch-macOS.zip ExcelMatcher.app
+          pyinstaller ExcelMatcher_v1.0.0.spec
 
       - name: Upload macOS App
         uses: actions/upload-artifact@v4
         with:
           name: EasyMatch-macOS
-          path: dist/EasyMatch-macOS.zip
+          path: dist/ExcelMatcher_v1.0.0.app
           retention-days: 30
 
   create-release:
