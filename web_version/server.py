@@ -133,7 +133,8 @@ async def process_match(
         
         # 4. Return Result
         filename = os.path.basename(out_path)
-        return FileResponse(out_path, filename=filename, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        media_type = 'text/csv' if filename.endswith('.csv') else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        return FileResponse(out_path, filename=filename, media_type=media_type)
         
     except Exception as e:
         import traceback
