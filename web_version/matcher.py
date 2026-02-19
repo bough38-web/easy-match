@@ -640,7 +640,8 @@ def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir,
     if base_config.get("type") == "open":
         # SAFETY: For 1M rows, xlwings write-back will NEVER finish (Excel hangs)
         if total > 50000:
-             log_progress(f"[알림] 대량 데이터({total:,}건)로 인해 결과는 파일로만 저장되었습니다. (Excel 직접 기입 제외)")
+             log_progress(f"[알림] 대용량 데이터({total:,}건)로 인해 결과는 파일로만 저장되었습니다. (Excel 직접 기입 제외)")
+             preview = joined.head(5) if len(joined) > 0 else None
              return out_path, summary, preview
              
         try:

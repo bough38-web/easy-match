@@ -6,3 +6,5 @@ openpyxl
 xlsxwriter
 python-calamine
 jinja2
+numpy
+rapidfuzz
