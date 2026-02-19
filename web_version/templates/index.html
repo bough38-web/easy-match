@@ -74,6 +74,7 @@
             font-weight: 700;
             background: linear-gradient(to right, #34d399, #6366f1);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 0.5rem;
         }
@@ -150,16 +151,27 @@
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--glass-border);
             border-radius: 12px;
-            height: 200px;
+            height: 250px;
             overflow-y: auto;
-            padding: 0.5rem;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
         }
 
         .search-inner {
-            margin-bottom: 0.5rem;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 1px solid var(--glass-border);
             position: sticky;
             top: 0;
             z-index: 5;
+        }
+
+        .cols-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 0.5rem;
+            padding: 1rem;
         }
 
         .search-inner input {
@@ -406,7 +418,7 @@
                         <div class="search-inner">
                             <input type="text" placeholder="검색..." onkeyup="filterCols('base', this.value)">
                         </div>
-                        <div id="base_cols_list"></div>
+                        <div id="base_cols_list" class="cols-grid"></div>
                     </div>
                 </div>
 
@@ -426,7 +438,7 @@
                         <div class="search-inner">
                             <input type="text" placeholder="검색..." onkeyup="filterCols('target', this.value)">
                         </div>
-                        <div id="target_cols_list"></div>
+                        <div id="target_cols_list" class="cols-grid"></div>
                     </div>
                 </div>
             </div>
