@@ -798,7 +798,7 @@ class MultiSelectListBox(GridCheckList):
 
 # Determine base class for App
 if DRAG_DROP_AVAILABLE:
-    BaseApp = TkinterDnD
+    BaseApp = TkinterDnD.Tk
 else:
     BaseApp = tk.Tk
 
