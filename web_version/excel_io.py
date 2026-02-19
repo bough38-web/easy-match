@@ -18,15 +18,21 @@ def fast_xlsx_sheets(file_path):
     except:
         return []
 
-def _sniff_csv(file_path, enc):
-    # ... (existing code)
-    try:
-        with open(file_path,'r',encoding=enc) as f:
-            sample=f.read(4096)
-            dialect=csv.Sniffer().sniff(sample, delimiters=[',','\t','|',';'])
-            return dialect.delimiter
     except:
         return None
+
+def _sniff_csv_fast(file_path, enc):
+    """Sniff CSV delimiter from just the first 8KB."""
+    try:
+        with open(file_path, 'r', encoding=enc) as f:
+            sample = f.read(8192)
+            if not sample: return ','
+            # Fast sniff
+            for sep in [',', '\t', '|', ';']:
+                if sep in sample: return sep
+            return ','
+    except:
+        return ','
 
 # ... (rest of file)
 
@@ -130,9 +136,9 @@ def read_header_file(file_path, sheet_name=0, header_row=1):
                 df=None
                 for enc in ['cp949','utf-8','euc-kr']:
                     try:
-                        sep=_sniff_csv(path_to_read, enc)
-                        # nrows=0 is very fast
-                        df=pd.read_csv(path_to_read, header=header_idx, nrows=0, encoding=enc, sep=sep, engine='python')
+                        sep=_sniff_csv_fast(path_to_read, enc)
+                        # nrows=0 is nearly instant
+                        df=pd.read_csv(path_to_read, header=header_idx, nrows=0, encoding=enc, sep=sep, engine='c')
                         break
                     except: 
                         continue
@@ -179,7 +185,8 @@ def read_table_file(file_path, sheet_name, header_row, usecols):
             for c in missing: df[c]=""
             df=df.reindex(columns=usecols, fill_value="")
         
-        df=df.astype(str).replace(['nan','NaN','None','<NA>'],'')
+        # Performance: DON'T convert to string here. 
+        # Matcher will handle normalization/formatting efficiently using unique values.
         return df
 
 def get_unique_values(file_path, sheet_name, header_row, column_name, progress_callback=None):

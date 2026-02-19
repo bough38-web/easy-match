@@ -551,7 +551,7 @@ def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir,
     for c in final_cols:
         if c not in joined.columns:
             joined[c] = ""
-    joined = joined[final_cols].fillna("")
+    joined = joined[final_cols] # Don't fillna("") here, apply_expert_format handles it
 
     # formatting (All columns) - Breakthrough: Low Cardinality Mapping
     num_cols = len(final_cols)
@@ -561,6 +561,7 @@ def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir,
         joined[c] = apply_expert_format(joined[c], c)
 
     log_progress("파일 헤더 정리 중...", 94)
+    # Vectorized rename
     joined.columns = [remove_illegal_chars(str(c)) for c in joined.columns]
     
     total = len(joined)
