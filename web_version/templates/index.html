@@ -250,6 +250,19 @@
                 </div>
             </div>
 
+            <!-- Options Section -->
+            <div class="section">
+                <div class="section-title">4. 옵션 (Options)</div>
+                <div class="row">
+                    <div class="col">
+                        <label class="checkbox-item" style="border:none; padding:0; background:none;">
+                            <input type="checkbox" name="match_only" id="match_only">
+                            <strong>매칭 성공한 데이터만 다운로드 (제거 미성공 데이터)</strong>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <button type="submit" class="submit-btn" id="submitBtn">매칭 시작 (Match)</button>
             <div class="msg" id="message"></div>
         </form>
@@ -401,14 +414,14 @@
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement("a");
                 a.href = url;
-                
+
                 // Content-Disposition header might contain filename
                 const contentDisposition = response.headers.get("Content-Disposition");
                 let filename = "matching_result.xlsx";
                 if (contentDisposition && contentDisposition.indexOf("filename=") !== -1) {
                     filename = contentDisposition.split("filename=")[1].replace(/"/g, "");
                 }
-                
+
                 a.download = filename;
                 document.body.appendChild(a);
                 a.click();

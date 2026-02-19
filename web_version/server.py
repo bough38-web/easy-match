@@ -80,6 +80,7 @@ async def process_match(
     key_cols: str = Form(...),
     take_cols: str = Form(...),
     pw: Optional[str] = Form(None),
+    match_only: bool = Form(False),
 ):
     if pw != "admin": return {"error": "Invalid password"}
     # 1. Save Uploaded Files
@@ -122,7 +123,7 @@ async def process_match(
         
     options = {
         "fuzzy": False,
-        "match_only": False
+        "match_only": match_only
     }
     
     try:
