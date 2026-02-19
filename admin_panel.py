@@ -2,16 +2,27 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from license_manager import save_license, load_license
 
+def get_scaling_factor(window):
+    """Returns the DPI scaling factor for the given window."""
+    try:
+        return window.tk.call('tk', 'scaling') / (96.0 / 72.0)
+    except:
+        return 1.0
+
 class AdminPanel(tk.Toplevel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.title("관리자 - 라이선스 설정")
-        self.geometry("360x240")
+        
+        scale = get_scaling_factor(parent or self)
+        width = int(380 * scale)
+        height = int(260 * scale)
+        self.geometry(f"{width}x{height}")
         self.resizable(False, False)
 
         # Use Notebook for tabs
         notebook = ttk.Notebook(self)
-        notebook.pack(fill="both", expand=True, padx=10, pady=10)
+        notebook.pack(fill="both", expand=True, padx=int(10 * scale), pady=int(10 * scale))
 
         # Tab 1: Current License Info (Read-only view)
         tab_info = ttk.Frame(notebook, padding=10)

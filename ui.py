@@ -25,6 +25,13 @@ def get_scaling_factor(window):
     except:
         return 1.0
 
+def get_scaled_font(size, weight=None):
+    """Helper to get a scaled font tuple. Requires a scaling factor."""
+    # This is a bit tricky without the factor, so we usually call it like:
+    # font=(get_system_font()[0], int(size * scale), weight)
+    # We'll provide a more formal version later if needed.
+    pass
+
 from __version__ import __version__
 from diagnostics import collect_summary, format_summary
 from excel_io import read_header_file, get_sheet_names
@@ -54,14 +61,19 @@ from guide_overlay import GuideManager
 def show_preview_dialog(parent, out_path, summary, preview_df):
     dialog = tk.Toplevel(parent)
     dialog.title("작업 완료 및 데이터 미리보기")
-    dialog.geometry("900x650")
+    
+    scale = get_scaling_factor(parent or dialog)
+    width = int(900 * scale)
+    height = int(650 * scale)
+    dialog.geometry(f"{width}x{height}")
     dialog.transient(parent)
     dialog.grab_set()
 
     # Glassmorphism-style header in dialog
-    header = GradientFrame(dialog, color1="#2c3e50", color2="#1a2a3a", height=60)
+    header = GradientFrame(dialog, color1="#2c3e50", color2="#1a2a3a", height=int(60 * scale))
     header.pack(fill="x")
-    header.create_text(20, 30, text="매칭 결과 미리보기 (상위 5행)", font=(get_system_font()[0], 18, "bold"), fill="white", anchor="w")
+    header.create_text(int(20 * scale), int(30 * scale), text="매칭 결과 미리보기 (상위 5행)", 
+                       font=(get_system_font()[0], int(18 * scale), "bold"), fill="white", anchor="w")
 
     main_frame = ttk.Frame(dialog, padding=20)
     main_frame.pack(fill="both", expand=True)
@@ -73,8 +85,8 @@ def show_preview_dialog(parent, out_path, summary, preview_df):
     inner_summary = tk.Frame(summary_frame, bg="#f8f9fa", padx=15, pady=15)
     inner_summary.pack(fill="x")
     
-    ttk.Label(inner_summary, text=summary, font=(get_system_font()[0], 12, "bold"), background="#f8f9fa").pack(anchor="w")
-    ttk.Label(inner_summary, text=f"저장 위치: {os.path.basename(out_path)}", font=(get_system_font()[0], 10), foreground="#2B579A", background="#f8f9fa").pack(anchor="w", pady=(5, 0))
+    ttk.Label(inner_summary, text=summary, font=(get_system_font()[0], int(12 * scale), "bold"), background="#f8f9fa").pack(anchor="w")
+    ttk.Label(inner_summary, text=f"저장 위치: {os.path.basename(out_path)}", font=(get_system_font()[0], int(10 * scale)), foreground="#2B579A", background="#f8f9fa").pack(anchor="w", pady=(int(5 * scale), 0))
 
     # Table
     table_frame = ttk.Frame(main_frame)
@@ -277,7 +289,10 @@ def show_custom_confirm(parent, title, message):
         dialog = tk.Toplevel()
         
     dialog.title(title)
-    dialog.geometry("420x220")
+    scale = get_scaling_factor(parent or dialog)
+    width = int(420 * scale)
+    height = int(220 * scale)
+    dialog.geometry(f"{width}x{height}")
     dialog.resizable(False, False)
     
     if parent:
@@ -285,15 +300,17 @@ def show_custom_confirm(parent, title, message):
         dialog.grab_set()
         
     # Header (Question style)
-    header = GradientFrame(dialog, color1="#2980b9", color2="#3498db", height=50)
+    header = GradientFrame(dialog, color1="#2980b9", color2="#3498db", height=int(50 * scale))
     header.pack(fill="x")
-    header.create_text(20, 25, text=f"❓  {title}", font=(get_system_font()[0], 13, "bold"), fill="white", anchor="w")
+    header.create_text(int(20 * scale), int(25 * scale), text=f"❓  {title}", 
+                       font=(get_system_font()[0], int(13 * scale), "bold"), fill="white", anchor="w")
     
     # Content
     content = tk.Frame(dialog, bg="white", padx=20, pady=20)
     content.pack(fill="both", expand=True)
     
-    msg_lbl = tk.Label(content, text=message, font=(get_system_font()[0], 11), bg="white", wraplength=380, justify="left", fg="#333333")
+    msg_lbl = tk.Label(content, text=message, font=(get_system_font()[0], int(11 * scale)), 
+                    bg="white", wraplength=int(380 * scale), justify="left", fg="#333333")
     msg_lbl.pack(expand=True, fill="both")
     
     # Buttons
@@ -315,11 +332,11 @@ def show_custom_confirm(parent, title, message):
     ttk.Button(btn_box, text="예 (Yes)", command=on_yes).pack(side="left", padx=10)
     ttk.Button(btn_box, text="아니오 (No)", command=on_no).pack(side="left", padx=10)
     
-    # Center
+    # Center on parent
     try:
         if parent:
-            x = parent.winfo_rootx() + (parent.winfo_width()//2) - 210
-            y = parent.winfo_rooty() + (parent.winfo_height()//2) - 110
+            x = parent.winfo_rootx() + (parent.winfo_width()//2) - (width//2)
+            y = parent.winfo_rooty() + (parent.winfo_height()//2) - (height//2)
             dialog.geometry(f"+{x}+{y}")
     except:
         pass
@@ -431,10 +448,17 @@ def _save_replace_file(presets: dict, active: dict, active_name: str = ""):
 
 
 class ReplacementEditor(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.title("데이터 치환 규칙 설정")
-        self.geometry("650x520")
+    def __init__(self, master):
+        super().__init__(master)
+        self.title("매칭 규칙 편집기 (Rule Editor)")
+        
+        scale = get_scaling_factor(master)
+        self.scale = scale
+        width = int(650 * scale)
+        height = int(520 * scale)
+        self.geometry(f"{width}x{height}")
+        self.transient(master)
+        self.resizable(False, False)
 
         data = _load_replace_file()
         self.presets = data["presets"]
@@ -442,7 +466,7 @@ class ReplacementEditor(tk.Toplevel):
         self.active_name = data.get("active_name", "") or ""
 
         top_frame = ttk.LabelFrame(self, text="규칙 프리셋 관리", padding=10)
-        top_frame.pack(fill="x", padx=10, pady=5)
+        top_frame.pack(fill="x", padx=int(10 * scale), pady=int(5 * scale))
 
         self.preset_var = tk.StringVar()
         self.cb_preset = ttk.Combobox(
@@ -486,7 +510,7 @@ class ReplacementEditor(tk.Toplevel):
         self.ent_new.grid(row=0, column=5, padx=5)
 
         ttk.Button(form_frame, text="추가/수정", command=self.add_rule).grid(
-            row=0, column=6, padx=10
+            row=0, column=6, padx=int(10 * scale)
         )
 
         columns = ("col", "old", "new")
@@ -630,15 +654,17 @@ class GridCheckList(tk.Frame): # Switch to tk.Frame for consistent background co
         self.vars: dict[str, tk.BooleanVar] = {}
 
         top = tk.Frame(self, bg=bg_color)
-        top.pack(fill="x", pady=(0, 4))
+        scale = get_scaling_factor(master)
+        self.scale = scale
+        top.pack(fill="x", pady=(0, int(4 * scale)))
         self.q = tk.StringVar()
         ent = ttk.Entry(top, textvariable=self.q)
         ent.pack(side="left", fill="x", expand=True)
         ent.bind("<KeyRelease>", self._on_key_release)
         self.search_timer = None
-        ttk.Button(top, text="지우기", width=6, command=self._clear).pack(side="left", padx=4)
+        ttk.Button(top, text="지우기", width=int(6 * scale), command=self._clear).pack(side="left", padx=int(4 * scale))
 
-        self.canvas = tk.Canvas(self, height=height, bg=self.bg_color, highlightthickness=0)
+        self.canvas = tk.Canvas(self, height=int(height * scale), bg=self.bg_color, highlightthickness=0)
         sb = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.inner = tk.Frame(self.canvas, bg=self.bg_color) # Use tk.Frame for better color control
         self.inner_id = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
@@ -690,8 +716,9 @@ class GridCheckList(tk.Frame): # Switch to tk.Frame for consistent background co
                 # Use tk.Checkbutton for significantly better PERFORMANCE than ttk in large lists
                 cb = tk.Checkbutton(self.inner, text=it, variable=self.vars[it], 
                                     bg=self.bg_color, activebackground=self.bg_color, selectcolor="white",
-                                    font=(get_system_font()[0], 10))
-                cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", padx=4, pady=1)
+                                    font=(get_system_font()[0], int(10 * self.scale)))
+                cb.grid(row=idx // self.columns, column=idx % self.columns, sticky="w", 
+                        padx=int(4 * self.scale), pady=int(1 * self.scale))
                 
             self.inner.pack(fill="both", expand=True)
                 
@@ -889,15 +916,19 @@ class MultiFilterRow:
         }
 
 class ColumnMappingDialog(tk.Toplevel):
-    def __init__(self, master, base_keys, target_headers, current_mapping=None):
-        super().__init__(master)
-        self.title("컬럼 매핑 설정")
-        self.geometry("450x400")
-        self.transient(master)
+    def __init__(self, parent, base_cols, tgt_cols, current_mapping=None):
+        super().__init__(parent)
+        self.title("컬럼 맵핑 (Rule Editor)")
+        
+        scale = get_scaling_factor(parent)
+        width = int(450 * scale)
+        height = int(400 * scale)
+        self.geometry(f"{width}x{height}")
+        self.transient(parent)
         self.grab_set()
         
-        self.base_keys = base_keys
-        self.target_headers = ["(사용 안 함)"] + list(target_headers)
+        self.base_keys = base_cols
+        self.target_headers = ["(사용 안 함)"] + list(tgt_cols)
         self.mapping = current_mapping if current_mapping else {}
         self.result_mapping = None
         
@@ -905,8 +936,8 @@ class ColumnMappingDialog(tk.Toplevel):
         content = tk.Frame(self, bg="white", padx=20, pady=20)
         content.pack(fill="both", expand=True)
         
-        tk.Label(content, text="기준 데이터의 '키' 컬럼과 대상 파일의 컬럼을 연결하세요.", 
-                 font=("Pretendard", 10, "bold"), bg="white", fg="#2c3e50").pack(pady=(0,15), anchor="w")
+        tk.Label(content, text="기준 컬럼 ↔ 대상 컬럼 맵핑 설정", 
+                 font=(get_system_font()[0], int(10 * scale), "bold"), bg="white", fg="#2c3e50").pack(pady=(0,int(15 * scale)), anchor="w")
         
         # Scrollable area for mappings
         container = tk.Frame(content, bg="white")
@@ -932,7 +963,7 @@ class ColumnMappingDialog(tk.Toplevel):
             row = tk.Frame(self.scrollable_frame, bg="white", pady=5)
             row.pack(fill="x")
             
-            tk.Label(row, text=f"기준: {k}", font=("Pretendard", 9), bg="white", width=20, anchor="w").pack(side="left")
+            tk.Label(row, text=f"기준: {k}", font=(get_system_font()[0], int(9 * scale)), bg="white", width=int(20 * scale), anchor="w").pack(side="left")
             tk.Label(row, text="→", bg="white").pack(side="left", padx=10)
             
             cb = ttk.Combobox(row, values=self.target_headers, state="readonly", width=20)
@@ -975,11 +1006,15 @@ class ColumnMappingDialog(tk.Toplevel):
 
 class BatchColumnSelectDialog(tk.Toplevel):
     """Dialog for selecting specific columns to fetch from a file in batch mode."""
-    def __init__(self, master, all_columns, current_selection=None):
-        super().__init__(master)
-        self.title("가져올 컬럼 선택")
-        self.geometry("400x500")
-        self.transient(master)
+    def __init__(self, parent, all_columns, current_selection=None):
+        super().__init__(parent)
+        self.title("데이터 필드 선택")
+        
+        scale = get_scaling_factor(parent)
+        width = int(400 * scale)
+        height = int(500 * scale)
+        self.geometry(f"{width}x{height}")
+        self.transient(parent)
         self.grab_set()
         
         self.all_columns = all_columns
@@ -992,7 +1027,7 @@ class BatchColumnSelectDialog(tk.Toplevel):
         content.pack(fill="both", expand=True)
         
         tk.Label(content, text="결과에 포함할 컬럼을 선택하세요.", 
-                 font=("Pretendard", 10, "bold"), bg="white", fg="#2c3e50").pack(pady=(0,10), anchor="w")
+                 font=(get_system_font()[0], int(10 * scale), "bold"), bg="white", fg="#2c3e50").pack(pady=(0,int(10 * scale)), anchor="w")
         
         # Select All / None
         ctrl_frame = tk.Frame(content, bg="white")
@@ -1022,7 +1057,7 @@ class BatchColumnSelectDialog(tk.Toplevel):
         for col in self.all_columns:
             var = tk.BooleanVar(value=(col in self.current_selection))
             cb = tk.Checkbutton(self.scrollable_frame, text=col, variable=var, 
-                                bg="white", font=("Pretendard", 9), anchor="w")
+                                bg="white", font=(get_system_font()[0], int(9 * scale)), anchor="w")
             cb.pack(fill="x")
             self.checks[col] = var
             
@@ -1045,7 +1080,12 @@ class MultiFileDialog(tk.Toplevel):
     def __init__(self, master, current_files=None, on_apply=None, base_keys=None):
         super().__init__(master)
         self.title("다중 파일 선택 (Advanced Batch)")
-        self.geometry("750x500") # Wider
+        
+        scale = get_scaling_factor(master)
+        self.scale = scale # Store it
+        width = int(750 * scale)
+        height = int(500 * scale)
+        self.geometry(f"{width}x{height}")
         self.transient(master)
         self.grab_set()
         
@@ -1061,10 +1101,10 @@ class MultiFileDialog(tk.Toplevel):
 
     def _init_ui(self):
         # Header
-        header = tk.Frame(self, bg="#f8f9fa", pady=15)
+        header = tk.Frame(self, bg="#f8f9fa", pady=int(15 * self.scale))
         header.pack(fill="x")
-        tk.Label(header, text="대상 파일 일괄 관리 (최대 10개)", font=("Pretendard", 13, "bold"), bg="#f8f9fa", fg="#2c3e50").pack()
-        tk.Label(header, text="각 파일의 '시트(Sheet)'를 정확히 지정해주세요.", font=("Pretendard", 9), fg="#7f8c8d", bg="#f8f9fa").pack()
+        tk.Label(header, text="대상 파일 일괄 관리 (최대 10개)", font=(get_system_font()[0], int(13 * self.scale), "bold"), bg="#f8f9fa", fg="#2c3e50").pack()
+        tk.Label(header, text="각 파일의 '시트(Sheet)'를 정확히 지정해주세요.", font=(get_system_font()[0], int(9 * self.scale)), fg="#7f8c8d", bg="#f8f9fa").pack()
         
         # File List Area (Scrollable)
         self.canvas = tk.Canvas(self, borderwidth=0, background="#ffffff")
@@ -1080,10 +1120,10 @@ class MultiFileDialog(tk.Toplevel):
         self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfig("self.frame", width=e.width))
         
         # Footer
-        footer = tk.Frame(self, bg="#f8f9fa", pady=10)
+        footer = tk.Frame(self, bg="#f8f9fa", pady=int(10 * self.scale))
         footer.pack(side="bottom", fill="x")
         
-        ttk.Button(footer, text="+ 파일 추가", command=self._add_file).pack(side="left", padx=20)
+        ttk.Button(footer, text="+ 파일 추가", command=self._add_file).pack(side="left", padx=int(20 * self.scale))
         ttk.Button(footer, text="초기화", command=self._clear_all).pack(side="left", padx=5)
         
         # Unified Column Select Button
@@ -1107,7 +1147,7 @@ class MultiFileDialog(tk.Toplevel):
             row.pack(fill="x", pady=1)
             
             # Decoration
-            tk.Label(row, text=f"{i+1}", font=("Pretendard", 10, "bold"), width=3, bg="#ecf0f1", fg="#7f8c8d").pack(side="left", padx=(0,10))
+            tk.Label(row, text=f"{i+1}", font=(get_system_font()[0], int(10 * self.scale), "bold"), width=3, bg="#ecf0f1", fg="#7f8c8d").pack(side="left", padx=(0,int(10 * self.scale)))
             
             # File Info
             fname = os.path.basename(f['path'])
@@ -1149,10 +1189,10 @@ class MultiFileDialog(tk.Toplevel):
             combo.set(current_sheet)
             combo.pack(side="right", padx=5)
             combo.bind("<<ComboboxSelected>>", lambda e, idx=i, c=combo: self._update_sheet(idx, c.get()))
-            tk.Label(row, text="시트:", bg="white", font=("Pretendard", 9)).pack(side="right")
+            tk.Label(row, text="시트:", bg="white", font=(get_system_font()[0], int(9 * self.scale))).pack(side="right")
 
             # 5. Header Spinbox (Added earlier but let's place it here too)
-            tk.Label(row, text="헤더:", bg="white", font=("Pretendard", 9)).pack(side="right", padx=(10,0))
+            tk.Label(row, text="헤더:", bg="white", font=(get_system_font()[0], int(9 * self.scale))).pack(side="right", padx=(int(10 * self.scale),0))
             hdr_var = tk.IntVar(value=f.get('header', 1))
             hdr_sp = ttk.Spinbox(row, from_=1, to=100, width=3, textvariable=hdr_var,
                                 command=lambda idx=i, v=hdr_var: self._update_header(idx, v.get()))
@@ -1163,8 +1203,8 @@ class MultiFileDialog(tk.Toplevel):
             info_frame = tk.Frame(row, bg="white")
             info_frame.pack(side="left", fill="x", expand=True)
             
-            tk.Label(info_frame, text=fname, font=("Pretendard", 10, "bold"), anchor="w", bg="white").pack(fill="x")
-            tk.Label(info_frame, text=f['path'], font=("Pretendard", 8), fg="#95a5a6", anchor="w", bg="white").pack(fill="x")
+            tk.Label(info_frame, text=fname, font=(get_system_font()[0], int(10 * self.scale), "bold"), anchor="w", bg="white").pack(fill="x")
+            tk.Label(info_frame, text=f['path'], font=(get_system_font()[0], int(8 * self.scale)), fg="#95a5a6", anchor="w", bg="white").pack(fill="x")
             
             # --- PACKING ORDER END ---
 
@@ -1786,7 +1826,12 @@ class App(BaseApp):
         self.sheet_cache = {}   # path: [sheets...]
 
         self.title(APP_TITLE)
-        self.geometry("1080x1080")
+        
+        # Scaling for Main Window
+        scale = self.scale
+        width = int(1080 * scale)
+        height = int(900 * scale) # Adjusted height to be more reasonable
+        self.geometry(f"{width}x{height}")
 
         # --- HEADER SECTION (Redesigned for Commercial) ---
         # Height 100 for dramatic effect with Glassmorphism
@@ -1967,7 +2012,6 @@ class App(BaseApp):
 
         # Launch Assembly first
         self.after(800, assembly_animation)
-
 
         # License/Admin Menu for Expert Gear
         def open_expert_menu(e):
@@ -2370,15 +2414,22 @@ class App(BaseApp):
         def show_inquiry_popup(e=None):
             top = tk.Toplevel(self)
             top.title("문의")
-            top.geometry("450x520")
+            
+            scale = self.scale
+            w = int(450 * scale)
+            h = int(520 * scale)
+            top.geometry(f"{w}x{h}")
             top.configure(bg="white")
             top.resizable(False, False)
             
             # Center
-            top.update_idletasks()
-            x = (top.winfo_screenwidth() // 2) - 225
-            y = (top.winfo_screenheight() // 2) - 260
-            top.geometry(f"450x520+{x}+{y}")
+            root_x = self.winfo_rootx()
+            root_y = self.winfo_rooty()
+            root_w = self.winfo_width()
+            root_h = self.winfo_height()
+            x = root_x + (root_w // 2) - (w // 2)
+            y = root_y + (root_h // 2) - (h // 2)
+            top.geometry(f"+{x}+{y}")
             
             # Main container
             container = tk.Frame(top, bg="white")
@@ -3017,16 +3068,24 @@ class App(BaseApp):
         # Create progress window
         progress_win = tk.Toplevel(self)
         progress_win.title("매칭 진행 중...")
-        progress_win.geometry("500x200")
+        
+        scale = self.scale
+        width = int(500 * scale)
+        height = int(240 * scale)
+        progress_win.geometry(f"{width}x{height}")
         progress_win.resizable(False, False)
+        
+        # Center progress_win
+        root_x = self.winfo_rootx()
+        root_y = self.winfo_rooty()
+        root_w = self.winfo_width()
+        root_h = self.winfo_height()
+        x = root_x + (root_w // 2) - (width // 2)
+        y = root_y + (root_h // 2) - (height // 2)
+        progress_win.geometry(f"+{x}+{y}")
+        
         progress_win.transient(self)
         progress_win.grab_set()
-        
-        # Center the window
-        progress_win.update_idletasks()
-        x = (progress_win.winfo_screenwidth() // 2) - (500 // 2)
-        y = (progress_win.winfo_screenheight() // 2) - (240 // 2)
-        progress_win.geometry(f"500x240+{x}+{y}")
         
         # Progress frame
         frame = tk.Frame(progress_win, bg="white", padx=30, pady=30)

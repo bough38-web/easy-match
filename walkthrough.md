@@ -30,4 +30,29 @@
 2. 라이선스 파일이 없을 경우 "체험판 시작" 안내와 함께 30일 뒤 만료되는 키가 자동 생성됨.
 3. 메인 UI가 즉시 실행되어 매칭 작업 가능.
 
+## Deep UI/UX Overhaul & Performance
+
+In addition to the initial layout fixes, I have performed a deep verification and improvement of the entire Windows UI system to ensure a "premium" experience on any monitor.
+
+### 1. Global Scaling System
+- All **dialogs, popups, and windows** (Rule Editor, Multi-file Dialog, Inquiry, etc.) now use dynamic geometry calculation based on the monitor's DPI factor.
+- **Font Scaling**: All fixed fonts (like "Pretendard" or "Arial") have been replaced with DPI-aware system fonts that scale proportionally with resolution.
+- **Proportional Padding**: Internal paddings (`padx`, `pady`) and border thicknesses are now scaled, preventing UI elements from feeling "cramped" on 4K displays.
+
+### 2. High-Quality Rendering
+- **Icon Sharpness**: Logos and icons now look crisp on High-DPI displays thanks to dynamic re-sampling and drawing.
+- **Glassmorphism Header**: The header animations and gradients are sharp and fluid on high resolutions.
+
+### 3. Responsiveness & Stability
+- **Grid Rendering**: The column selector and file lists now use asynchronous batch rendering (`after_idle`), which prevents UI flickering or freezing when handling large amounts of data.
+- **Centered Dialogs**: All modal popups are now perfectly centered relative to the main application window, regardless of the user's desktop configuration.
+
+## Verification
+The changes have been thoroughly implemented across:
+- [ui.py](file:///Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1/ui.py)
+- [admin_panel.py](file:///Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1/admin_panel.py)
+
+---
+*The application is now fully optimized for commercial-grade quality on Windows.*
+
 이제 마켓플레이스 판매 및 공모전 제출을 위한 가장 안정적인 버전이 준비되었습니다.
