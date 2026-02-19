@@ -151,15 +151,17 @@ def read_table_open(book_name: str, sheet_name: str, header_row: int, usecols: L
         
         df = pd.DataFrame(data_vals, columns=headers)
         
-        # 필요한 컬럼만 필터링
-        existing = [c for c in usecols if c in df.columns]
-        missing = [c for c in usecols if c not in df.columns]
-        
-        df = df[existing] if existing else pd.DataFrame()
-        for c in missing: 
-            df[c] = ""
+        if usecols:
+            # 필요한 컬럼만 필터링
+            existing = [c for c in usecols if c in df.columns]
+            missing = [c for c in usecols if c not in df.columns]
             
-        df = df.reindex(columns=usecols, fill_value="")
+            df = df[existing] if existing else pd.DataFrame(index=df.index)
+            for c in missing: 
+                df[c] = ""
+                
+            df = df.reindex(columns=usecols, fill_value="")
+            
         df = df.astype(str).replace(['nan', 'NaN', 'None', '<NA>', 'None'], '')
         
         return df

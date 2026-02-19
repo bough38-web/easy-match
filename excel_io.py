@@ -98,31 +98,40 @@ def read_table_file(file_path, sheet_name, header_row, usecols):
     header_idx=header_row-1
     if isinstance(usecols,str): usecols=[usecols]
     usecols=[str(c).strip() for c in (usecols or [])]
-    if ext in ['.xls','.xlsx']:
-        df=pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx)
-    elif ext=='.csv':
-        df=None
-        for enc in ['cp949','utf-8','euc-kr']:
+    if ext == '.xlsx':
+        try:
+            # Breakthrough: Calamine is significantly faster for large XLSX
+            df = pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx, engine='calamine')
+        except:
+            df = pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx)
+    elif ext == '.xls':
+        df = pd.read_excel(file_path, sheet_name=sheet_name, header=header_idx)
+    elif ext == '.csv':
+        df = None
+        for enc in ['utf-8-sig', 'cp949', 'utf-8', 'euc-kr']:
             try:
-                sep=_sniff_csv(file_path, enc)
-                df=pd.read_csv(file_path, header=header_idx, encoding=enc, sep=sep, engine='python')
+                sep = _sniff_csv(file_path, enc)
+                # Expert: Engine 'c' is faster than 'python'
+                df = pd.read_csv(file_path, header=header_idx, encoding=enc, sep=sep, engine='c', low_memory=False)
                 break
-            except: 
-                continue
+            except: continue
         if df is None:
             raise Exception("CSV 파일 인코딩/구분자를 인식하지 못했습니다.")
     else:
         return pd.DataFrame()
     df.columns=[str(c).strip() for c in df.columns]
-    existing=[c for c in usecols if c in df.columns]
-    missing=[c for c in usecols if c not in df.columns]
-    df=df[existing] if existing else pd.DataFrame()
-    for c in missing: df[c]=""
-    df=df.reindex(columns=usecols, fill_value="")
+    
+    if usecols:
+        existing=[c for c in usecols if c in df.columns]
+        missing=[c for c in usecols if c not in df.columns]
+        df=df[existing] if existing else pd.DataFrame(index=df.index)
+        for c in missing: df[c]=""
+        df=df.reindex(columns=usecols, fill_value="")
+    
     df=df.astype(str).replace(['nan','NaN','None','<NA>'],'')
     return df
 
-def get_unique_values(file_path, sheet_name, header_row, column_name):
+def get_unique_values(file_path, sheet_name, header_row, column_name, progress_callback=None):
     """
     Returns a sorted list of unique entries for a specific column.
     Optimized for .xlsx using iter_rows (read_only).
@@ -143,10 +152,6 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
                 for i, row in enumerate(ws.iter_rows(min_row=header_row, max_row=header_row, values_only=True)):
                     for idx, val in enumerate(row):
                         if str(val).strip() == column_name:
-                            col_idx = idx + 1 # 1-based index for iter_cols? No, iter_rows returns tuple. 
-                            # actually iter_cols is not fully supported in read_only mode efficiently?
-                            # It says "Warning: iter_cols is slow in read_only".
-                            # Better to iterate rows and pick the index.
                             col_idx = idx
                             break
                     break
@@ -156,15 +161,17 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
                     return []
 
                 unique_set = set()
-                # Pre-fetch lowercase check set for speed
                 excluded = {'nan', 'none', 'null', ''}
                 
                 # OPTIMIZED LOOP: Minimize object creation and string calls for 1M rows
-                for row_vals in ws.iter_rows(min_row=header_row+1, values_only=True):
+                for row_idx, row_vals in enumerate(ws.iter_rows(min_row=header_row+1, values_only=True), 1):
+                    # Report progress every 5000 rows
+                    if progress_callback and row_idx % 5000 == 0:
+                        progress_callback(row_idx)
+                        
                     if col_idx < len(row_vals):
                         val = row_vals[col_idx]
                         if val is not None:
-                            # Faster check: skip if it's already a string and likely not empty
                             if isinstance(val, str):
                                 s_val = val.strip()
                                 if s_val and s_val.lower() not in excluded:
@@ -176,6 +183,8 @@ def get_unique_values(file_path, sheet_name, header_row, column_name):
                 
                 wb.close()
                 unique_list = sorted(list(unique_set))
+                # Report final count
+                if progress_callback: progress_callback(row_idx)
                 return ["(값 있음)", "(값 없음)"] + unique_list
             except Exception as e:
                 print(f"Fast unique read failed, falling back: {e}")

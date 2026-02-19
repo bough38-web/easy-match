@@ -825,10 +825,19 @@ class MultiFilterRow:
         self.btn_load.state(["disabled"])
         
         import threading
+        def _progress(count):
+            self.frame.after(0, lambda: self.cb_val.set(f"({count:,}행...)"))
+
         def _task():
             try:
-                vals = self.fetch_vals(col)
-                # Schedule UI update on main thread
+                # fetch_vals should now support progress_callback
+                import inspect
+                sig = inspect.signature(self.fetch_vals)
+                if 'progress_callback' in sig.parameters:
+                    vals = self.fetch_vals(col, progress_callback=_progress)
+                else:
+                    vals = self.fetch_vals(col)
+                    
                 self.frame.after(0, lambda: self._update_vals(vals))
             except Exception as e:
                 print(f"Error fetching values: {e}")
@@ -1302,7 +1311,8 @@ class MultiFileDialog(tk.Toplevel):
 
 class FileLoaderFrame(tk.Frame):
     def __init__(self, master, title, mode_var, on_change=None, on_fetch_vals=None, allow_multiple=False):
-        super().__init__(master, bg="white", highlightbackground="#bdc3c7", highlightthickness=1)
+        # Professional "Card" look: white bg, shadow border
+        super().__init__(master, bg="#ffffff", highlightbackground="#e1e4e8", highlightthickness=1)
         self.mode = mode_var
         self.on_change = on_change
         self.on_fetch_vals = on_fetch_vals
@@ -1314,16 +1324,25 @@ class FileLoaderFrame(tk.Frame):
         self.header = tk.IntVar(value=1)
         self.multi_files = [] # For batch mode with detailed config
 
-        # Content Container with padding
-        self.content = tk.Frame(self, bg="white", padx=15, pady=15)
+        # Left Accent Border (Professional look)
+        accent_color = "#3498db" if "기준" in title else "#2ecc71"
+        self.accent = tk.Frame(self, bg=accent_color, width=4)
+        self.accent.pack(side="left", fill="y")
+
+        # Content Container
+        self.content = tk.Frame(self, bg="white", padx=15, pady=12)
         self.content.pack(fill="both", expand=True)
 
-        # Custom Header
-        tk.Label(self.content, text=title, font=(get_system_font()[0], 11, "bold"), bg="white", fg="#2c3e50", anchor="w").pack(fill="x", pady=(0, 10))
+        # Title (Larger & Centered)
+        header_frame = tk.Frame(self.content, bg="white")
+        header_frame.pack(fill="x", pady=(0, 15)) # Increased bottom padding
+        
+        tk.Label(header_frame, text=title, font=(get_system_font()[0], 15, "bold"), 
+                 bg="white", fg="#2c3e50", anchor="center").pack(fill="x")
 
         # Top: Mode selection
         top = tk.Frame(self.content, bg="white")
-        top.pack(fill="x", pady=(0, 5))
+        top.pack(fill="x", pady=(0, 8))
         
         # Custom Radio Styling (using tk for bg control)
         # Note: ttk.Radiobutton with 'white' background style is tricky, using tk.Radiobutton for simplicity in card
@@ -1453,13 +1472,6 @@ class FileLoaderFrame(tk.Frame):
         except: pass
         return []
 
-    def _refresh_filter_cols(self):
-        for row in self.f_rows:
-            row.refresh_cols()
-
-    def get_filters(self):
-        return [r.get_config() for r in self.f_rows]
-
     def _notify_change(self, event=None):
         self._refresh_filter_cols()
         # Clear main app's unique value cache if configuration changes
@@ -1469,6 +1481,39 @@ class FileLoaderFrame(tk.Frame):
             
         if self.on_change: self.on_change()
 
+    def _load_file_data(self, file_path):
+        """Helper to fetch sheet names and update UI"""
+        try:
+            # Use master's cache if available
+            app = self.winfo_toplevel()
+            sheets = []
+            if hasattr(app, "_fetch_sheet_names"):
+                sheets = app._fetch_sheet_names(file_path)
+            else:
+                from excel_io import get_sheet_names
+                sheets = get_sheet_names(file_path)
+            
+            self.cb_sheet["values"] = sheets
+            if sheets: 
+                self.cb_sheet.current(0)
+                self.sheet.set(sheets[0])
+            else:
+                self.sheet.set("")
+            
+            # Reset Batch mode if any
+            self.multi_files = []
+            self.cb_sheet["state"] = "readonly"
+            
+            self._notify_change()
+        except Exception as e:
+            show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
+
+    def _refresh_filter_cols(self):
+        for row in self.f_rows:
+            row.refresh_cols()
+
+    def get_filters(self):
+        return [r.get_config() for r in self.f_rows]
     def set_filter_state(self, active, col="", kw="", op="=="):
         """Programmatically set one filter (Legacy support / preset support)"""
         if active:
@@ -1508,22 +1553,8 @@ class FileLoaderFrame(tk.Frame):
                 show_custom_alert(self, "파일 형식 오류", f"지원하지 않는 파일 형식입니다.", "warning")
                 return
             self.path.set(file_path)
-            try:
-                # Use master's cache if available
-                app = self.winfo_toplevel()
-                sheets = []
-                if hasattr(app, "_fetch_sheet_names"):
-                    sheets = app._fetch_sheet_names(file_path)
-                else:
-                    sheets = get_sheet_names(file_path)
-                
-                self.cb_sheet["values"] = sheets
-                if sheets: self.cb_sheet.current(0)
-            except Exception as e:
-                show_custom_alert(self, "오류", f"시트 목록을 불러올 수 없습니다:\n{e}", "error")
-            
+            self._load_file_data(file_path)
             event.widget.config(background="white")
-            self._notify_change()
         except Exception as e:
             show_custom_alert(self, "오류", f"파일을 불러올 수 없습니다:\n{str(e)}", "error")
 
@@ -1610,20 +1641,16 @@ class FileLoaderFrame(tk.Frame):
     def _on_book_select(self, event=None):
         if not self.book.get(): return
         try:
+            from excel_io import list_sheets
             sheets = list_sheets(self.book.get())
             self.cb_sheet["values"] = sheets
-            if sheets: self.cb_sheet.current(0)
+            if sheets: 
+                self.cb_sheet.current(0)
+                self.sheet.set(sheets[0])
+            else:
+                self.sheet.set("")
         except: pass
         self._notify_change()
-
-    def _notify_change(self, event=None):
-        self._refresh_filter_cols()
-        # Clear main app's unique value cache if configuration changes
-        main_app = self.winfo_toplevel()
-        if hasattr(main_app, "_clear_unique_cache"):
-            main_app._clear_unique_cache()
-            
-        if self.on_change: self.on_change()
 
     def get_config(self):
         return {
@@ -2202,12 +2229,15 @@ class App(BaseApp):
         main_body.pack(side="top", fill="both", expand=True, pady=0)
 
         # --- Left Column (Base Data) ---
-        # Grouped with Border - Increased padding
-        self.left_col = tk.Frame(main_body, bg="white", highlightbackground="#bdc3c7", highlightthickness=1, padx=20, pady=20)
+        self.left_col = tk.Frame(main_body, bg="#f8f9fa", highlightbackground="#dee2e6", highlightthickness=1, padx=20, pady=20)
         self.left_col.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        # 1. Source Loader
-        self.src_loader = FileLoaderFrame(self.left_col, "1. 기준 데이터 (Key 보유)", self.base_mode, on_change=self._load_base_cols, on_fetch_vals=self._fetch_base_unique_vals)
+        # --- Right Column (Target Data) ---
+        self.right_col = tk.Frame(main_body, bg="#f8f9fa", highlightbackground="#dee2e6", highlightthickness=1, padx=20, pady=20)
+        self.right_col.pack(side="left", fill="both", expand=True, padx=(10, 0))
+
+        # 1. Base Data Loader
+        self.src_loader = FileLoaderFrame(self.left_col, "기준 데이터", self.base_mode, on_change=self._load_base_cols, on_fetch_vals=self._fetch_base_unique_vals)
         self.src_loader.pack(side="top", fill="x", pady=(0, 15))
 
         # 2. Base Presets Bar
@@ -2229,13 +2259,8 @@ class App(BaseApp):
         self.match_key_selector.pack(side="bottom", fill="both", expand=True)
 
 
-        # --- Right Column (Target Data) ---
-        # Grouped with Border - Increased padding
-        self.right_col = tk.Frame(main_body, bg="white", highlightbackground="#bdc3c7", highlightthickness=1, padx=20, pady=20)
-        self.right_col.pack(side="left", fill="both", expand=True, padx=(10, 0))
-
         # 1. Target Loader
-        self.tgt_loader = FileLoaderFrame(self.right_col, "2. 대상 데이터 (데이터 가져올 곳)", self.tgt_mode, on_change=self._load_tgt_cols, on_fetch_vals=self._fetch_tgt_unique_vals, allow_multiple=True)
+        self.tgt_loader = FileLoaderFrame(self.right_col, "대상 데이터", self.tgt_mode, on_change=self._load_tgt_cols, on_fetch_vals=self._fetch_tgt_unique_vals, allow_multiple=True)
         self.tgt_loader.pack(side="top", fill="x", pady=(0, 15))
 
         # 2. Target Presets Bar
@@ -2252,8 +2277,8 @@ class App(BaseApp):
         ttk.Button(preset_frame, text="저장", command=self.save_preset, width=5).pack(side="left", padx=2)
         ttk.Button(preset_frame, text="삭제", command=self.delete_preset, width=5).pack(side="left", padx=2)
 
-        # 3. Target Column Selector
-        self.target_col_selector = ColumnSelectorFrame(self.right_col, "가져올 컬럼 선택 - 대상 데이터", bg_color="#f0fff4")
+        # 3. Target Field Selector
+        self.target_col_selector = ColumnSelectorFrame(self.right_col, "매칭 필드 선택 - 대상 데이터", bg_color="#f0fff4")
         self.target_col_selector.pack(side="bottom", fill="both", expand=True)
 
         # --- Selection Feedback Logic ---
@@ -2834,7 +2859,7 @@ class App(BaseApp):
         except: pass
         return []
 
-    def _fetch_base_unique_vals(self, col):
+    def _fetch_base_unique_vals(self, col, progress_callback=None):
         from excel_io import get_unique_values
         cfg = self.src_loader.get_config()
         if cfg["type"] == "file" and cfg["path"]:
@@ -2844,7 +2869,7 @@ class App(BaseApp):
                 return self.unique_cache[cache_key]
             
             try:
-                vals = get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
+                vals = get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col, progress_callback=progress_callback)
                 if vals:
                     self.unique_cache[cache_key] = vals
                 return vals
@@ -2858,7 +2883,7 @@ class App(BaseApp):
             except: pass
         return []
 
-    def _fetch_tgt_unique_vals(self, col):
+    def _fetch_tgt_unique_vals(self, col, progress_callback=None):
         from excel_io import get_unique_values
         cfg = self.tgt_loader.get_config()
         if cfg["type"] == "file" and cfg["path"]:
@@ -2868,7 +2893,7 @@ class App(BaseApp):
                 return self.unique_cache[cache_key]
                 
             try:
-                vals = get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col)
+                vals = get_unique_values(cfg["path"], cfg["sheet"], cfg["header"], col, progress_callback=progress_callback)
                 if vals:
                     self.unique_cache[cache_key] = vals
                 return vals

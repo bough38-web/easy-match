@@ -22,9 +22,7 @@ rm -rf dist build *.spec
 
 # 0. Pre-check & Install Critical Dependencies
 echo "[SETUP] Installing critical dependencies..."
-pip install requests --upgrade
-pip install Pillow --upgrade
-pip install pyinstaller --upgrade
+pip install requests Pillow pyinstaller pandas openpyxl xlsxwriter xlwings rapidfuzz python-calamine tkinterdnd2 --upgrade
 
 # Build using CLI arguments (avoiding Spec file Unicode path issues)
 echo "[BUILD] PyInstaller 실행 중 (CLI Mode)..."
@@ -42,7 +40,11 @@ pyinstaller --noconfirm --windowed --clean \
     --hidden-import "PIL" \
     --hidden-import "PIL.Image" \
     --hidden-import "PIL.ImageTk" \
+    --hidden-import "rapidfuzz" \
+    --hidden-import "calamine" \
+    --hidden-import "tkinterdnd2" \
     --collect-all "Pillow" \
+    --collect-all "tkinterdnd2" \
     --exclude-module "PyQt5" \
     --exclude-module "PyQt6" \
     --exclude-module "qtpy" \
@@ -58,10 +60,27 @@ pyinstaller --noconfirm --windowed --clean \
 
 if [ $? -eq 0 ]; then
     echo "[성공] 빌드 완료!"
-    echo "앱 번들: dist/ExcelMatcher_v1.0.19.app"
+    echo "앱 번들: dist/$APP_NAME.app"
     
-    # Optional: Create DMG (requires create-dmg)
-    # echo "You can now package dist/$APP_NAME.app into a DMG."
+    # Create DMG using hdiutil (standard on macOS)
+    echo "[BUILD] DMG 파일 제작 중 (Staging structure)..."
+    DMG_NAME="${APP_NAME}.dmg"
+    rm -f "dist/$DMG_NAME"
+    
+    # Breakthrough: Use a staging folder so the .app itself is in the DMG root
+    rm -rf "dist/dmg_staging"
+    mkdir -p "dist/dmg_staging"
+    cp -R "dist/$APP_NAME.app" "dist/dmg_staging/"
+    
+    hdiutil create -volname "$APP_NAME" -srcfolder "dist/dmg_staging" -ov -format UDZO "dist/$DMG_NAME"
+    
+    rm -rf "dist/dmg_staging"
+    
+    if [ $? -eq 0 ]; then
+        echo "[성공] 배포용 DMG 제작 완료: dist/$DMG_NAME"
+    else
+        echo "[경고] DMG 제작 실패."
+    fi
 else
     echo "[오류] 빌드 실패."
     exit 1

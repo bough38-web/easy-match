@@ -2,12 +2,9 @@
 chcp 65001
 echo [BUILD] ExcelMatcher Windows 빌드 시작...
 
-REM PyInstaller 확인
-pyinstaller --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [오류] PyInstaller가 설치되지 않았습니다. 설치를 시작합니다...
-    pip install pyinstaller
-)
+REM PyInstaller 및 주요 의존성 확인/설치
+echo [SETUP] Installing critical dependencies...
+pip install requests Pillow pyinstaller pandas openpyxl xlsxwriter xlwings rapidfuzz python-calamine --upgrade
 
 REM 이전 빌드 정리
 if exist "dist" rmdir /s /q "dist"
@@ -39,6 +36,8 @@ pyinstaller --noconfirm --onedir --windowed ^
     --hidden-import "PIL" ^
     --hidden-import "PIL.Image" ^
     --hidden-import "PIL.ImageTk" ^
+    --hidden-import "rapidfuzz" ^
+    --hidden-import "calamine" ^
     --collect-all "Pillow" ^
     --exclude-module "PyQt5" ^
     --exclude-module "PyQt6" ^

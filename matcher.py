@@ -91,7 +91,10 @@ def match_universal(
         use_fuzzy = False
 
     log_progress("데이터 로드 중...", 10)
-    df_b = _load_df(base_config, key_cols)
+    # Load all columns from base to preserve user's original data in output
+    df_b = _load_df(base_config, None) 
+    base_cols = df_b.columns.tolist()
+    
     if cancel_check(): raise InterruptedError()
     
     if is_batch:
@@ -209,7 +212,7 @@ def match_universal(
         take_cols = [c for c in joined.columns if c not in df_b.columns and c not in key_cols]
         _debug_log(f"Batch Match Finished. Rows: {len(joined)}, New Cols: {len(take_cols)}")
 
-        return _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
+        return _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
 
     if not is_batch:
         df_t = _load_df(target_config, key_cols + take_cols)  # load keys for matching + takes
@@ -336,28 +339,29 @@ def match_universal(
     # 1. Deduplicate Target by keys (we only need one match if multiple?)
     #    Actually current logic: keep all targets? 
     import numpy as np
+    import gc
+    from utils import apply_expert_norm, apply_expert_format
+
     for k in key_cols:
         if k in df_b.columns:
-            if use_fast:
-                s = df_b[k].astype(str).str.strip()
-                df_b[k] = np.where(s.str.endswith(".0"), s.str[:-2], s)
-            else:
-                df_b[k] = df_b[k].apply(norm)
+            df_b[k] = apply_expert_norm(df_b[k]).astype('category')
         if k in df_t.columns:
-            if use_fast:
-                s = df_t[k].astype(str).str.strip()
-                df_t[k] = np.where(s.str.endswith(".0"), s.str[:-2], s)
-            else:
-                df_t[k] = df_t[k].apply(norm)
+            df_t[k] = apply_expert_norm(df_t[k]).astype('category')
+            
+    gc.collect()
 
     # fuzzy (single key only)
     if use_fuzzy and RAPIDFUZZ_AVAILABLE and len(key_cols) == 1:
         log_progress("[AI] 오타 보정(AI Fuzzy) 분석 중...", 40)
         k = key_cols[0]
         if k in df_b.columns and k in df_t.columns:
-            mapper = get_fuzzy_mapper(df_b[k], df_t[k], threshold=90)
+            def fuzzy_progress(curr, total):
+                log_progress(f"[AI] 오타 분석 중... ({curr}/{total})", 40 + int((curr/total)*9))
+            
+            from utils import get_fuzzy_mapper
+            mapper = get_fuzzy_mapper(df_b[k], df_t[k], threshold=90, progress_callback=fuzzy_progress)
             if mapper:
-                log_progress(f"총 {len(mapper)}건의 유사 키를 발견하여 보정합니다.")
+                log_progress(f"총 {len(mapper)}건의 유사 키를 발견하여 보정 완료.")
                 df_t[k] = df_t[k].map(mapper).fillna(df_t[k])
 
     # target dup keys
@@ -384,8 +388,12 @@ def match_universal(
 
             # preserve original order
             df_b["_idx"] = df_b.index
-            df_b["_key"] = df_b[key_cols].astype(str).agg(sep.join, axis=1)
-            df_t["_key"] = df_t[key_cols].astype(str).agg(sep.join, axis=1)
+            # Breakthrough: Vectorized key concatenation for 1M rows (Avoids slow axis=1 agg)
+            df_b["_key"] = df_b[key_cols[0]].astype(str)
+            df_t["_key"] = df_t[key_cols[0]].astype(str)
+            for i in range(1, len(key_cols)):
+                df_b["_key"] += sep + df_b[key_cols[i]].astype(str)
+                df_t["_key"] += sep + df_t[key_cols[i]].astype(str)
 
             # one-to-one for mapping
             df_t = df_t.drop_duplicates(subset="_key", keep="first")
@@ -405,13 +413,50 @@ def match_universal(
                 res[col] = df_b["_key"].map(mapping[col]).fillna("")
 
             log_progress("결과 병합 중...", 90)
-            joined = pd.concat([df_b[key_cols], res], axis=1)
-            joined = joined.loc[df_b.sort_values("_idx").index]
-            joined = joined.drop(columns=[], errors="ignore")
+            
+            # Handle potential name collisions in Fast mode output columns if any (unlikely with this logic but good for safety)
+            # Actually fast mode avoids merge so collisions are less direct, but base_cols + take_cols in finalize handles it.
+            
+            joined = pd.concat([df_b[base_cols + ["_idx"]]], axis=1) # Keep all base columns
+            for col in take_cols:
+                final_col_name = col
+                if col in base_cols and col not in key_cols:
+                    final_col_name = f"{col}_대상"
+                joined[final_col_name] = res[col]
+            
+            # Update take_cols to the potentially renamed ones
+            take_cols = [c if (c not in base_cols or c in key_cols) else f"{c}_대상" for c in take_cols]
+            
+            joined = joined.set_index("_idx").sort_index()
         else:
-            joined = pd.merge(df_b.reset_index(), df_t, on=key_cols, how="left")
+            # Handle column collisions before merge to avoid _x, _y confusion
+            # If target has columns that are already in base (and not keys), rename them
+            rename_map = {}
+            for c in df_t.columns:
+                if c in df_b.columns and c not in key_cols:
+                    rename_map[c] = f"{c}_대상"
+            
+            if rename_map:
+                df_t_working = df_t.rename(columns=rename_map)
+                # Also update take_cols to reflect new names
+                take_cols_working = [rename_map.get(c, c) for c in take_cols]
+            else:
+                df_t_working = df_t
+                take_cols_working = take_cols
+
+            joined = pd.merge(df_b.reset_index(), df_t_working, on=key_cols, how="left")
+            
+            # CRITICAL: Free memory as soon as merge is done
+            del df_t_working
+            if 'df_t' in locals(): del df_t
+            gc.collect()
+
             if "index" in joined.columns:
                 joined = joined.set_index("index").sort_index()
+            
+            # Update take_cols for finalize
+            take_cols = take_cols_working
+            
             log_progress("매칭 완료, 데이터 정리 중...", 90)
     else: # Fuzzy matching (single key only, already checked)
         k = key_cols[0]
@@ -481,54 +526,73 @@ def match_universal(
 
 
     # Finalize and Save
-    return _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
+    return _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir, log_progress, df_t)
 
-def _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, log_progress, df_t=None):
+def _finalize_match(joined, base_cols, take_cols, options, base_config, out_dir, log_progress, df_t=None):
     import pandas as pd
     import os
     import datetime
-    from utils import smart_format, remove_illegal_chars
+    from utils import apply_expert_format, remove_illegal_chars
     from open_excel import write_to_open_excel
 
     # select / fill
-    final_cols = key_cols + take_cols
+    # Convert Categorical columns back to objects for safe filling and formatting
+    for c in joined.select_dtypes(include=['category']).columns:
+        joined[c] = joined[c].astype(object)
+        
+    final_cols = []
+    seen = set()
+    for c in (base_cols + take_cols):
+        sc = str(c).strip()
+        if sc and sc not in seen:
+            final_cols.append(c)
+            seen.add(sc)
+            
     for c in final_cols:
         if c not in joined.columns:
             joined[c] = ""
     joined = joined[final_cols].fillna("")
 
-    # formatting (take cols only)
-    for c in take_cols:
-        joined[c] = joined[c].map(smart_format)
+    # formatting (All columns) - Breakthrough: Low Cardinality Mapping
+    num_cols = len(final_cols)
+    for i, c in enumerate(final_cols):
+        if i % 5 == 0:
+             log_progress(f"데이터 정규화/포맷팅 중 ({i}/{num_cols})...", 90 + int((i/num_cols)*4))
+        joined[c] = apply_expert_format(joined[c], c)
 
     log_progress("파일 헤더 정리 중...", 94)
     joined.columns = [remove_illegal_chars(str(c)) for c in joined.columns]
     
-    # Sanitize entire dataframe to prevent openpyxl crashes (illegal chars)
-    log_progress("데이터 저장 준비 중 (특수문자 제거)...", 95)
-    _debug_log("Sanitizing data...")
-    # Apply to all string columns
-    for col in joined.select_dtypes(include=['object']).columns:
-        joined[col] = joined[col].map(remove_illegal_chars)
-
     total = len(joined)
+    save_as_csv = total > 50000
+
+    # Sanitize entire dataframe ONLY if saving to Excel (openpyxl/xlsxwriter requirement)
+    if not save_as_csv:
+        log_progress("데이터 저장 준비 중 (Excel 특수문자 제거)...", 95)
+        _debug_log("Sanitizing data for Excel...")
+        for col in joined.select_dtypes(include=['object']).columns:
+            joined[col] = joined[col].map(remove_illegal_chars)
+    else:
+        log_progress("대량 데이터 모드: 특수문자 제거 건너뜀 (CSV)...", 95)
+
     if total:
         # vectorized matched count: any non-empty in take_cols
         import numpy as np
-        mask = pd.DataFrame(False, index=joined.index, columns=['match'])
+        # ... (rest of matching logic)
+        mask_match = pd.Series(False, index=joined.index)
         for c in take_cols:
              sanitized_c = remove_illegal_chars(str(c))
              if sanitized_c in joined.columns:
-                 mask['match'] |= (joined[sanitized_c].astype(str).str.len() > 0)
-        matched = int(mask['match'].sum())
+                  mask_match |= (joined[sanitized_c].astype(str).str.len() > 0)
+        matched = int(mask_match.sum())
 
         # Save Condition: Match Only
         if options.get("match_only"):
             before_len = len(joined)
-            joined = joined[mask['match']].copy()
+            joined = joined[mask_match].copy()
             total = len(joined)
-            matched = total # All remaining are matched
-            log_progress(f"매칭 미성공 데이터 제외 완료 ({before_len} -> {total}건)", 92)
+            matched = total
+            log_progress(f"매칭 미성공 데이터 제외 완료 ({before_len} -> {total}건)", 96)
 
     else:
         matched = 0
@@ -542,17 +606,14 @@ def _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, 
     safe = os.path.basename(str(suffix)).split(".")[0]
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Threshold-based format selection: XLSX for small data, CSV for large data
-    save_as_csv = total > 50000
     ext = ".csv" if save_as_csv else ".xlsx"
     out_path = os.path.join(out_dir, f"result_{safe}_{ts}{ext}")
     
-    log_progress(f"파일 저장 중: {os.path.basename(out_path)}", 96)
+    log_progress(f"최종 결과 저장 중: {os.path.basename(out_path)}", 97)
     _debug_log(f"Saving start: {out_path}")
 
     try:
         if save_as_csv:
-            log_progress(f"CSV(BOM) 저장 중: {os.path.basename(out_path)}", 96)
             joined.to_csv(out_path, index=False, encoding="utf-8-sig")
         else:
             try:
@@ -561,11 +622,7 @@ def _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, 
                     joined.to_excel(writer, sheet_name="matched", index=False)
                     worksheet = writer.sheets['matched']
                     worksheet.freeze_panes(1, 0)
-            except ImportError:
-                log_progress("xlsxwriter 없음, 기본 엔진 사용...", 97)
-                joined.to_excel(out_path, sheet_name="matched", index=False)
-            except Exception as e:
-                log_progress("기본 엔진으로 재시도...", 98)
+            except:
                 joined.to_excel(out_path, sheet_name="matched", index=False)
         
         _debug_log("Final Save Logic Completed.")
@@ -579,10 +636,18 @@ def _finalize_match(joined, key_cols, take_cols, options, base_config, out_dir, 
 
     # Process "Open Excel" if applicable
     if base_config.get("type") == "open":
+        # SAFETY: For 1M rows, xlwings write-back will NEVER finish (Excel hangs)
+        if total > 50000:
+             log_progress(f"[알림] 대량 데이터({total:,}건)로 인해 결과는 파일로만 저장되었습니다. (Excel 직접 기입 제외)")
+             return out_path, summary, preview
+             
         try:
             log_progress("엑셀 시트에 결과 입력 중...")
-            import pythoncom
-            pythoncom.CoInitialize()
+            
+            if sys.platform == 'win32':
+                import pythoncom
+                pythoncom.CoInitialize()
+                
             use_color = bool(options.get("color", False))
             
             # Note: write_to_open_excel uses original key/take cols.
