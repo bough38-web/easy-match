@@ -81,6 +81,8 @@ async def process_match(
     take_cols: str = Form(...),
     pw: Optional[str] = Form(None),
     match_only: bool = Form(False),
+    fuzzy: bool = Form(False),
+    top10: bool = Form(False),
 ):
     if pw != "admin": return {"error": "Invalid password"}
     # 1. Save Uploaded Files
@@ -122,24 +124,44 @@ async def process_match(
         print(f"[Progress] {msg} {val}%")
         
     options = {
-        "fuzzy": False,
-        "match_only": match_only
+        "fuzzy": fuzzy,
+        "match_only": match_only,
+        "top10": top10
     }
     
     try:
-        out_path, summary, _ = matcher.match_universal(
+        out_path, summary, preview = matcher.match_universal(
             base_config, target_config, keys, takes, out_dir, options, progress=progress_callback
         )
         
-        # 4. Return Result
+        # 4. Return Result Metadata (UI will trigger download)
         filename = os.path.basename(out_path)
-        media_type = 'text/csv' if filename.endswith('.csv') else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        return FileResponse(out_path, filename=filename, media_type=media_type)
+        
+        # Convert preview DataFrame to list of dicts for JSON serialization
+        preview_data = []
+        if preview is not None:
+             preview_data = preview.fillna("").to_dict(orient="records")
+        
+        return {
+            "success": True,
+            "summary": summary,
+            "preview": preview_data,
+            "download_url": f"/download/{session_id}/{filename}"
+        }
         
     except Exception as e:
         import traceback
         traceback.print_exc()
         return {"error": str(e)}
+
+@app.get("/download/{session_id}/{filename}")
+async def download_result(session_id: str, filename: str):
+    file_path = os.path.join(OUTPUT_DIR, session_id, filename)
+    if not os.path.exists(file_path):
+        return {"error": "File not found"}
+        
+    media_type = 'text/csv' if filename.endswith('.csv') else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    return FileResponse(file_path, filename=filename, media_type=media_type)
 
 if __name__ == "__main__":
     import uvicorn
