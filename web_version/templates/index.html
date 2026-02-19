@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExcelMatcher Web</title>
+    <style>
+        :root {
+            --primary: #2ecc71;
+            --primary-dark: #27ae60;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+            --text: #333;
+            --border: #ddd;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--text);
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #555;
+        }
+
+        .row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .col {
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="file"],
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: #fafafa;
+        }
+
+        .checkbox-item {
+            background: white;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .checkbox-item:hover {
+            background: #f0f0f0;
+        }
+
+        button.submit-btn {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button.submit-btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        button.submit-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .loading-overlay.active {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .msg {
+            margin-top: 1rem;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .msg.error {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-overlay" id="loader">
+        <div style="text-align: center;">
+            <div class="spinner" style="margin: 0 auto 1rem;"></div>
+            <div id="loading-text">처리 중...</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>ExcelMatcher Web</h1>
+        <form id="matchForm" action="/upload" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="pw" value="{{ pw }}">
+
+            <!-- Base File Section -->
+            <div class="section">
+                <div class="section-title">1. 기준 파일 (Base File)</div>
+                <div class="row">
+                    <div class="col">
+                        <label for="base_file">파일 선택</label>
+                        <input type="file" name="base_file" id="base_file" accept=".xlsx, .xls, .csv" required
+                            onchange="handleFile('base')">
+                    </div>
+                    <div class="col">
+                        <label for="base_sheet">시트 선택</label>
+                        <select name="base_sheet" id="base_sheet" onchange="inspectSheet('base')">
+                            <option value="0">파일을 먼저 선택하세요</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target File Section -->
+            <div class="section">
+                <div class="section-title">2. 대상 파일 (Target File)</div>
+                <div class="row">
+                    <div class="col">
+                        <label for="target_file">파일 선택</label>
+                        <input type="file" name="target_file" id="target_file" accept=".xlsx, .xls, .csv" required
+                            onchange="handleFile('target')">
+                    </div>
+                    <div class="col">
+                        <label for="target_sheet">시트 선택</label>
+                        <select name="target_sheet" id="target_sheet" onchange="inspectSheet('target')">
+                            <option value="0">파일을 먼저 선택하세요</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column Selection -->
+            <div class="section">
+                <div class="section-title">3. 컬럼 선택</div>
+                <div class="row">
+                    <div class="col">
+                        <label>매칭 키 (Key Columns)</label>
+                        <div class="checkbox-group" id="key_cols_container">
+                            <span style="color:#999; padding:0.5rem;">기준 파일을 선택하면 목록이 표시됩니다.</span>
+                        </div>
+                        <input type="hidden" name="key_cols" id="key_cols_input">
+                    </div>
+                    <div class="col">
+                        <label>가져올 값 (Take Columns)</label>
+                        <div class="checkbox-group" id="take_cols_container">
+                            <span style="color:#999; padding:0.5rem;">대상 파일을 선택하면 목록이 표시됩니다.</span>
+                        </div>
+                        <input type="hidden" name="take_cols" id="take_cols_input">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">매칭 시작 (Match)</button>
+            <div class="msg" id="message"></div>
+        </form>
+    </div>
+
+    <script>
+        const state = {
+            base: { file: null, sheets: [], columns: [] },
+            target: { file: null, sheets: [], columns: [] }
+        };
+
+        async function handleFile(type) {
+            const fileInput = document.getElementById(`${type}_file`);
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            state[type].file = file;
+            await inspectSheet(type, 0); // Inspect first sheet by default
+        }
+
+        async function inspectSheet(type, sheetIndex = null) {
+            const file = state[type].file;
+            if (!file) return;
+
+            if (sheetIndex === null) {
+                const select = document.getElementById(`${type}_sheet`);
+                sheetIndex = parseInt(select.value) || 0;
+            }
+
+            showLoading(true, "파일 분석 중...");
+
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("sheet_index", sheetIndex);
+            formData.append("pw", "{{ pw }}");
+
+            try {
+                const res = await fetch("/inspect", { method: "POST", body: formData });
+                const data = await res.json();
+
+                if (data.error) {
+                    alert("오류 발생: " + data.error);
+                    return;
+                }
+
+                state[type].sheets = data.sheets;
+                state[type].columns = data.columns;
+
+                updateSheetDropdown(type, data.sheets, sheetIndex);
+
+                // Render columns for the specific type
+                renderColumns(type, data.columns);
+
+            } catch (e) {
+                console.error(e);
+                alert("파일 분석 실패");
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateSheetDropdown(type, sheets, selectedIndex) {
+            const select = document.getElementById(`${type}_sheet`);
+            select.innerHTML = "";
+            sheets.forEach((sheet, idx) => {
+                const option = document.createElement("option");
+                option.value = idx;
+                option.text = sheet;
+                if (idx === selectedIndex) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+
+        function renderColumns(type, columns) {
+            let containerId = "";
+            let checkboxClass = "";
+            let emptyMsg = "";
+
+            if (type === 'base') {
+                containerId = "key_cols_container";
+                checkboxClass = "key-check";
+                emptyMsg = '<span style="color:#999; padding:0.5rem;">기준 파일을 선택하면 목록이 표시됩니다.</span>';
+            } else {
+                containerId = "take_cols_container";
+                checkboxClass = "take-check";
+                emptyMsg = '<span style="color:#999; padding:0.5rem;">대상 파일을 선택하면 목록이 표시됩니다.</span>';
+            }
+
+            const container = document.getElementById(containerId);
+            container.innerHTML = "";
+
+            if (!columns || columns.length === 0) {
+                container.innerHTML = emptyMsg;
+                return;
+            }
+
+            columns.forEach(col => {
+                const div = document.createElement("label");
+                div.className = "checkbox-item";
+                div.innerHTML = `<input type="checkbox" value="${col}" class="${checkboxClass}"> ${col}`;
+                container.appendChild(div);
+            });
+        }
+
+        function showLoading(show, text = "처리 중...") {
+            const el = document.getElementById("loader");
+            const txt = document.getElementById("loading-text");
+            txt.innerText = text;
+            if (show) el.classList.add("active");
+            else el.classList.remove("active");
+        }
+
+        document.getElementById("matchForm").onsubmit = function (e) {
+            // Collect checked columns
+            const keys = Array.from(document.querySelectorAll(".key-check:checked")).map(cb => cb.value);
+            const takes = Array.from(document.querySelectorAll(".take-check:checked")).map(cb => cb.value);
+
+            if (keys.length === 0) {
+                alert("매칭 키(Key)를 최소 하나 이상 선택해주세요.");
+                e.preventDefault();
+                return;
+            }
+            if (takes.length === 0) {
+                alert("가져올 값(Take)을 최소 하나 이상 선택해주세요.");
+                e.preventDefault();
+                return;
+            }
+
+            document.getElementById("key_cols_input").value = keys.join(",");
+            document.getElementById("take_cols_input").value = takes.join(",");
+
+            // Show loading during submit (browser will handle download)
+            showLoading(true, "매칭 수행 중... (완료 시 다운로드됩니다)");
+
+            // Re-enable loader after a few seconds? No, stay until response?
+            // Since it's a form submit returning file, the page won't reload, but loader will stay.
+            // Setup a small timeout to hide loader if error, or rely on user to reload.
+            // Better: use fetch for submit to handle blob?
+            // For prototype simplicity, form submit is fine, let's just make user aware.
+            setTimeout(() => {
+                // If it takes too long, maybe hide?
+                // showLoading(false); 
+            }, 5000);
+        };
+    </script>
+</body>
+
+</html>

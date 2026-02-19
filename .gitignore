@@ -15,3 +15,8 @@ release/
 *.ico
 !assets/*.ico
 !assets/*.png
+uploads/
+outputs/
+__pycache__/
+*.log
+.DS_Store

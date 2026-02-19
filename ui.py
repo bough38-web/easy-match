@@ -1874,10 +1874,24 @@ class App(BaseApp):
         self.title(APP_TITLE)
         
         # Scaling for Main Window
-        scale = self.scale
-        width = int(1080 * scale)
-        height = int(900 * scale) # Adjusted height to be more reasonable
-        self.geometry(f"{width}x{height}")
+        # Auto-size to ~85% of screen, centered
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        
+        # Calculate target size (85% of screen)
+        # Limit max size for ultra-wide screens
+        target_w = min(int(screen_w * 0.85), 1600)
+        target_h = min(int(screen_h * 0.85), 1000)
+        
+        # Ensure minimum usable size
+        target_w = max(target_w, 1000)
+        target_h = max(target_h, 750)
+        
+        # Center position
+        pos_x = (screen_w - target_w) // 2
+        pos_y = (screen_h - target_h) // 2
+        
+        self.geometry(f"{target_w}x{target_h}+{pos_x}+{pos_y}")
 
         # --- HEADER SECTION (Redesigned for Commercial) ---
         # Height 100 for dramatic effect with Glassmorphism

@@ -91,9 +91,10 @@ class GuideBubble:
             w = self.target.winfo_width()
             h = self.target.winfo_height()
             
-            # Bubble size (estimate)
-            bw = 300
-            bh = 150
+            # Bubble size (Get actual size)
+            self.top.update_idletasks()
+            bw = self.top.winfo_reqwidth()
+            bh = self.top.winfo_reqheight()
             
             # Calculate position (try to place below, then above, then right)
             # Default: Below center
@@ -109,10 +110,11 @@ class GuideBubble:
             if bx + bw > sw - 10: bx = sw - bw - 10
             
             # Adjust Y (flip to top if cutting off bottom)
+            # Add a small buffer (10px) to ensure it doesn't touch the edge
             if by + bh > sh - 10:
                 by = y - bh - 15
             
-            self.top.geometry(f"+{bx}+{by}")
+            self.top.geometry(f"+{int(bx)}+{int(by)}")
         except:
             pass
 
