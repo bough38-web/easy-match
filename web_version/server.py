@@ -59,22 +59,18 @@ async def inspect_file(file: UploadFile = File(...), sheet_index: int = Form(0),
         return {
             "sheets": sheets,
             "columns": columns,
-            "filename": file.filename
+            "filename": file.filename,
+            "temp_path": temp_path # Return the path for subsequent matching
         }
     except Exception as e:
+        if os.path.exists(temp_path): os.remove(temp_path)
         return {"error": str(e)}
-    finally:
-        # Clean up temp file? 
-        # For a prototype, maybe keep it or delete. 
-        # If we delete, user has to re-upload for actual processing.
-        # Let's delete to keep clean, browser will re-upload on final submit.
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+    # Note: We NO LONGER delete in finally, to keep valid for the match step
 
 @app.post("/upload")
 async def process_match(
-    base_file: UploadFile = File(...),
-    target_file: UploadFile = File(...),
+    base_file: Optional[UploadFile] = File(None),
+    target_file: Optional[UploadFile] = File(None),
     base_sheet: int = Form(0),
     target_sheet: int = Form(0),
     key_cols: str = Form(...),
@@ -83,20 +79,34 @@ async def process_match(
     match_only: bool = Form(False),
     fuzzy: bool = Form(False),
     top10: bool = Form(False),
+    base_file_path: Optional[str] = Form(None),
+    target_file_path: Optional[str] = Form(None),
 ):
     if pw != "admin": return {"error": "Invalid password"}
-    # 1. Save Uploaded Files
+    
+    # 1. Use Cached Files or Save Uploaded Files
     session_id = str(uuid.uuid4())
     upload_session_dir = os.path.join(UPLOAD_DIR, session_id)
     os.makedirs(upload_session_dir, exist_ok=True)
+
+    # Helper to resolve file
+    def resolve_file(uploaded_file, cached_path, target_name):
+        dest = os.path.join(upload_session_dir, target_name)
+        if cached_path and os.path.exists(cached_path):
+            # Move cached file to session dir
+            shutil.move(cached_path, dest)
+            return dest
+        elif uploaded_file:
+            with open(dest, "wb") as buffer:
+                shutil.copyfileobj(uploaded_file.file, buffer)
+            return dest
+        return None
+
+    base_path = resolve_file(base_file, base_file_path, base_file.filename if base_file else "base.xlsx")
+    target_path = resolve_file(target_file, target_file_path, target_file.filename if target_file else "target.xlsx")
     
-    base_path = os.path.join(upload_session_dir, base_file.filename)
-    target_path = os.path.join(upload_session_dir, target_file.filename)
-    
-    with open(base_path, "wb") as buffer:
-        shutil.copyfileobj(base_file.file, buffer)
-    with open(target_path, "wb") as buffer:
-        shutil.copyfileobj(target_file.file, buffer)
+    if not base_path or not target_path:
+        return {"error": "Missing files"}
         
     # 2. Prepare Config
     base_config = {

@@ -106,35 +106,32 @@ def read_header_file(file_path, sheet_name=0, header_row=1):
             header_idx = header_row - 1
             
             if ext == '.xlsx':
-                # Use openpyxl read_only for speed
+                try:
+                    # Use Calamine for near-instant header read
+                    df = pd.read_excel(path_to_read, sheet_name=sheet_name, header=header_idx, nrows=0, engine='calamine')
+                    headers = [str(c).strip() for c in df.columns.tolist()]
+                    if headers: return headers
+                except:
+                    pass
+                
                 try:
                     wb = openpyxl.load_workbook(path_to_read, read_only=True, data_only=True)
-                    # Handle sheet index or name
-                    target_sheet = sheet_name
-                    if isinstance(target_sheet, int):
-                        target_sheet = wb.sheetnames[target_sheet]
-                    ws = wb[target_sheet]
-                    
-                    # Iterate rows to find header
-                    for i, row in enumerate(ws.iter_rows(min_row=header_row, max_row=header_row, values_only=True)):
-                        if i == 0: # First row from iterator is our header
-                            headers = [str(c).strip() if c is not None else f"Unnamed: {idx}" for idx, c in enumerate(row)]
-                            wb.close()
-                            return headers
+                    ws = wb.worksheets[sheet_name] if isinstance(sheet_name, int) else wb[sheet_name]
+                    header_cells = next(ws.iter_rows(min_row=header_row, max_row=header_row, values_only=True), [])
+                    headers = [str(c).strip() if c is not None else f"Unnamed: {idx}" for idx, c in enumerate(header_cells)]
                     wb.close()
-                    return []
-                except Exception as e:
-                    print(f"Fast header read failed, falling back: {e}")
-                    # Fallback to pandas
-                    pass
-    
+                    if headers: return headers
+                except: pass
+
             if ext in ['.xls','.xlsx']:
-                df=pd.read_excel(path_to_read, sheet_name=sheet_name, header=header_idx, nrows=0)
+                # nrows=0 is very fast in pandas
+                df=pd.read_excel(path_to_read, sheet_name=sheet_name, header=header_idx, nrows=1)
             elif ext=='.csv':
                 df=None
                 for enc in ['cp949','utf-8','euc-kr']:
                     try:
                         sep=_sniff_csv(path_to_read, enc)
+                        # nrows=0 is very fast
                         df=pd.read_csv(path_to_read, header=header_idx, nrows=0, encoding=enc, sep=sep, engine='python')
                         break
                     except: 

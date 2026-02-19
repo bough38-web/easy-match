@@ -508,8 +508,8 @@
 
     <script>
         const state = {
-            base: { columns: [] },
-            target: { columns: [] }
+            base: { columns: [], temp_path: null },
+            target: { columns: [], temp_path: null }
         };
 
         function toggleAdvanced() {
@@ -525,6 +525,7 @@
         async function handleFile(type) {
             const input = document.getElementById(type + '_file');
             if (!input.files[0]) return;
+            state[type].temp_path = null; // Reset cache when new file is selected
             await inspectSheet(type, 0);
         }
 
@@ -548,6 +549,7 @@
                 if (data.error) throw new Error(data.error);
 
                 state[type].columns = data.columns;
+                state[type].temp_path = data.temp_path;
 
                 // Update dropdown
                 const select = document.getElementById(type + '_sheet');
@@ -594,6 +596,16 @@
             fd.append("match_only", document.getElementById('match_only').checked);
             fd.append("fuzzy", document.getElementById('fuzzy').checked);
             fd.append("top10", document.getElementById('top10').checked);
+
+            // Expert: Use cached paths to avoid redundant uploads
+            if (state.base.temp_path) {
+                fd.delete("base_file");
+                fd.append("base_file_path", state.base.temp_path);
+            }
+            if (state.target.temp_path) {
+                fd.delete("target_file");
+                fd.append("target_file_path", state.target.temp_path);
+            }
 
             try {
                 const res = await fetch("/upload", { method: "POST", body: fd });
