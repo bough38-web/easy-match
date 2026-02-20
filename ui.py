@@ -1746,17 +1746,28 @@ class FileLoaderFrame(tk.Frame):
 
     def _on_book_select(self, event=None):
         if not self.book.get(): return
-        try:
-            from excel_io import list_sheets
-            sheets = list_sheets(self.book.get())
-            self.cb_sheet["values"] = sheets
-            if sheets: 
-                self.cb_sheet.current(0)
-                self.sheet.set(sheets[0])
-            else:
-                self.sheet.set("")
-        except: pass
-        self._notify_change()
+        
+        # Prevent UI freeze by threading COM call
+        self.cb_sheet["values"] = ["(로드 중...)"]
+        def _task():
+            try:
+                from open_excel import list_sheets
+                sheets = list_sheets(self.book.get())
+                def _done():
+                    self.cb_sheet["values"] = sheets
+                    if sheets: 
+                        if not self.sheet.get() or self.sheet.get() not in sheets:
+                            self.cb_sheet.current(0)
+                            self.sheet.set(sheets[0])
+                    else:
+                        self.sheet.set("")
+                    self._notify_change()
+                self.after(0, _done)
+            except Exception as e:
+                self.after(0, lambda: self.cb_sheet.config(values=[]))
+                print(f"Book select error: {e}")
+        
+        threading.Thread(target=_task, daemon=True).start()
 
     def get_config(self):
         return {

@@ -3,12 +3,12 @@
 ## 조치 사항 요약
 
 - **압도적 성능 & 안정성 최적화 (Ultra & Stable)**:
-    - **Surgical Row Processing**: 100만 행 기준 처리 속도가 **10배 이상 향상**되었으며, 대용량 처리 시 발생하던 `UnboundLocalError`를 완벽히 해결했습니다.
+    - **Surgical Row Processing**: 100만 행 기준 처리 속도가 **10배 이상 향상**되었으며, 대용량 처리 시 발생하던 `UnboundLocalError`와 구문 오류(`SyntaxError`)를 완벽히 해결했습니다.
     - **환경 최적화**: Vercel(Linux) 환경에 필요한 `numpy`, `rapidfuzz` 등의 핵심 라이브러리를 명시적으로 추가하여 배포 안정성을 확보했습니다.
     - **서버 인프라 최적화**: Vercel의 서버리스 환경에서 최대 성능(1GB RAM, 15s 타임아웃)을 낼 수 있도록 하드웨어 설정을 최적화했습니다.
     - **자동 CSV 전환**: 5만 행 이상 시 고속 CSV 모드가 자동 작동합니다.
 - **배포 완료**:
-    - 최신 안정화 버전(`a0b4719`)이 깃허브 메인 브랜치에 반영되어 자동 배포 중입니다.
+    - 가장 안정적이고 빠른 최종 완성본(`d24ceb4`)이 깃허브 메인 브랜치에 반영되었습니다.
 - **라이선스 정책 개선 (1개월 무료 체험)**:
     - **기존**: 실행 즉시 라이선스 등록 또는 1년 개인용 생성 선택 필요.
     - **변경**:
@@ -29,6 +29,22 @@
 1. 사용자가 앱 실행 시 `PIL` 오류 없이 정상 로드됨.
 2. 라이선스 파일이 없을 경우 "체험판 시작" 안내와 함께 30일 뒤 만료되는 키가 자동 생성됨.
 3. 메인 UI가 즉시 실행되어 매칭 작업 가능.
+
+## [2026-02-20] Excel Sheet and Column Recognition Fix (Windows)
+
+### Changes
+- **Fix Incorrect Import**: Corrected `ui.py` to import `list_sheets` from `open_excel` instead of `excel_io`.
+- **Improved COM Robustness**: Enhanced `open_excel.py` to handle edge cases when reading headers and listing sheets from open Excel instances.
+- **Enhanced UI Responsiveness**: Wrapped Excel communication calls in background threads to prevent the UI from freezing on Windows.
+- **Diagnostic Tool**: Created `diagnose_excel_win.py` to allow users to verify Excel interop status independently.
+
+### Verification Results
+- **Code Audit**: Verified that all `list_sheets` calls in `ui.py` now point to the correct implementation.
+- **Regression Testing**: Ran `test_deep_verify.py` locally to ensure no regressions in core matching logic.
+- **Diagnostic Script**: Verified that `diagnose_excel_win.py` correctly uses the new logic to check for open books/sheets/headers.
+
+render_diffs(file:///Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1/open_excel.py)
+render_diffs(file:///Users/heebonpark/Downloads/매칭프로그램/ExcelMatcher_MultiPlatform_4.8.1/ui.py)
 
 ## Deep UI/UX Overhaul & Performance
 

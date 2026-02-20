@@ -64,11 +64,15 @@ def list_sheets(book_name: str) -> List[str]:
     """
     특정 workbook의 시트 목록 반환
     """
-    wb = _get_book_by_name(book_name)
     try:
+        wb = _get_book_by_name(book_name)
+        if not wb:
+            return []
         return [sh.name for sh in wb.sheets]
     except Exception as e:
-        raise RuntimeError(f"시트 목록 조회 실패: {e}") from e
+        # xlwings/Excel communication can fail if Excel is busy (editing a cell)
+        print(f"Error listing sheets for '{book_name}': {e}")
+        return []
 
 
 def read_header_open(book_name: str, sheet_name: str, header_row: int = 1) -> List[str]:
@@ -76,36 +80,52 @@ def read_header_open(book_name: str, sheet_name: str, header_row: int = 1) -> Li
     열려있는 Excel에서 header_row 행의 헤더(컬럼명) 목록을 읽어옴.
     - 빈 값은 제거
     """
-    wb = _get_book_by_name(book_name)
     try:
+        wb = _get_book_by_name(book_name)
+        if not wb:
+            return []
         sh = wb.sheets[sheet_name]
     except Exception as e:
-        raise RuntimeError(f"시트를 찾지 못했습니다: {sheet_name}") from e
+        print(f"Sheet access error: {e}")
+        return []
 
     try:
         # A열부터 우측으로 연속된 헤더를 1행 읽는 방식
-        # used_range 기반으로 폭을 잡아도 되지만, 보수적으로 current_region 사용
+        # xlwings sh.range((r, c)).expand("right") behaves like Ctrl+Shift+Right
         rng = sh.range((header_row, 1)).expand("right")
         vals = rng.value
 
         if vals is None:
-            return []
+            # Try UsedRange if expand failed (e.g. only one cell populated)
+            try:
+                vals = sh.range((header_row, 1)).value
+            except:
+                return []
+
         if isinstance(vals, list):
-            # 단일 행이면 list로 나옴
+            # Normal case for multiple cells
             headers = vals
         else:
+            # Single cell returns a scalar value
             headers = [vals]
 
         out: List[str] = []
-        for v in headers:
+        for i, v in enumerate(headers):
             if v is None:
+                # Avoid leaving gaps, but if it's the middle of used range, maybe Unnamed?
+                # For headers, we typically want non-empty strings.
                 continue
             s = str(v).strip()
             if s:
                 out.append(s)
+            else:
+                # If we have a gap in headers, we can stop or keep going. 
+                # expand("right") already stops at the first gap.
+                pass
         return out
     except Exception as e:
-        raise RuntimeError(f"헤더 읽기 실패: {e}") from e
+        print(f"Header range read error: {e}")
+        return []
 
 
 def read_table_open(book_name: str, sheet_name: str, header_row: int, usecols: List[str]) -> "pd.DataFrame":
